@@ -157,6 +157,13 @@
   .cap-row{display:flex;align-items:center;gap:8px;margin-top:6px}
   .cap-row input{max-width:110px;flex:0 0 auto}
   .btn:disabled{opacity:.5;cursor:not-allowed}
+  .warn-bar{border:1px solid #f5d9a8;background:#fef3e2;color:#b45309;border-radius:12px;padding:12px 16px;font-weight:700;margin-bottom:18px;font-size:15px}
+  .warn-bar.ok{border-color:#bfe6cb;background:var(--green-soft);color:var(--green)}
+  .pcard .lack{position:absolute;top:6px;left:6px;background:#fdeaea;color:var(--red);font-size:11px;font-weight:700;border-radius:6px;padding:1px 6px}
+  .mgr-lbl{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:4px;font-weight:600;cursor:pointer;flex:0 0 auto}
+  table.grid td.cnt .hrs{font-size:11px;font-weight:700;color:var(--muted)}
+  table.grid td.cnt.under{background:#fdeaea}
+  table.grid td.cnt.under,table.grid td.cnt.under .hrs{color:var(--red)}
   .hint{font-size:12px;color:var(--muted);margin-top:6px}
   .hint a{color:var(--brand);cursor:pointer;text-decoration:none}
   .list-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;margin-bottom:7px}
@@ -251,6 +258,8 @@
         </div>
       </div>
 
+      <div id="hour-warn" class="warn-bar" style="display:none"></div>
+
       <div class="card">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
           <label class="fld" style="margin:0">本月活動月曆</label>
@@ -298,7 +307,7 @@
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         <div>
           <h2 class="section">參與報表</h2>
-          <p class="sub" style="margin:0">依月份統計參與狀況與各課室參與率。參與＝當月有報名。</p>
+          <p class="sub" style="margin:0">依月份統計時數達標狀況。達標＝當月時數達到目標（一般 2 小時、課級主管 1 小時；抵 2 小時活動算 2）。</p>
         </div>
         <div style="margin-left:auto;min-width:160px">
           <label class="fld">月份</label>
@@ -309,13 +318,13 @@
     </div>
 
     <div class="card">
-      <h2 class="section">各課室參與率</h2>
+      <h2 class="section">各課室達標率</h2>
       <div class="table-wrap"><table class="grid" id="dept-table"></table></div>
     </div>
 
     <div class="card">
-      <h2 class="section">本月未參與名單 <span class="count-badge" id="nonpart-count"></span></h2>
-      <p class="sub">當月完全沒有報名的啟用人員，依課室分組。</p>
+      <h2 class="section">本月未達標名單 <span class="count-badge" id="nonpart-count"></span></h2>
+      <p class="sub">當月時數未達目標的啟用人員，依課室分組，並標示還差幾小時。</p>
       <div id="nonpart-list"></div>
     </div>
 
@@ -362,10 +371,10 @@
           <div style="max-width:220px">
             <label class="fld">名額計算</label>
             <select id="f-weight">
-              <option value="1">一般（算 1 場）</option>
-              <option value="2">大型（一場抵 2 場）</option>
+              <option value="1">一般（算 1 小時）</option>
+              <option value="2">大型（一場抵 2 小時）</option>
             </select>
-            <div class="hint">每人每月共 2 場名額，「抵 2 場」的活動報一次就用滿。</div>
+            <div class="hint">每月時數目標：一般人 2 小時、課級主管 1 小時；不強制擋報名，未達標會在報名頁明顯提醒。</div>
           </div>
         </div>
 
@@ -434,7 +443,7 @@
     <div class="adm-panel" id="adm-people">
       <div class="card">
         <h2 class="section">人員管理 <span class="count-badge" id="ppl-count"></span></h2>
-        <p class="sub">報名頁的名單來自這裡。可停用（如離職）而不刪除資料。<b>課室</b>用於報表的參與率分析，可直接在每列修改。</p>
+        <p class="sub">報名頁的名單來自這裡。可停用（如離職）而不刪除資料。<b>課室</b>用於報表分析；勾選<b>課級主管</b>者每月時數目標為 1 小時（一般人 2 小時）。</p>
         <div class="row" style="margin-bottom:14px">
           <input type="text" id="ppl-input" placeholder="姓名" style="max-width:180px">
           <select id="ppl-dept-input" style="max-width:180px"></select>
@@ -712,8 +721,10 @@ function occurrencesInMonth(ym, includeStopped){
 function mkOcc(id,date,cfg){
   return {id, date, activity:cfg.activity, locations:cfg.locations||[], slots:cfg.slots||[], caps:cfg.caps||{}, weight:+cfg.weight===2?2:1, fromSeries:id.includes(':')};
 }
-/* 每月名額：每人每月最多 MONTH_QUOTA 場；weight=2 的活動報一場抵兩場 */
-const MONTH_QUOTA=2;
+/* 每月時數：一般人目標 2 小時、課級主管 1 小時；weight=2 的活動一場抵 2 小時。
+   不強制擋報名——未達目標時在畫面上明顯提醒 */
+const HOURS_TARGET=2, HOURS_TARGET_MGR=1;
+function personTarget(p){ return p&&p.supervisor?HOURS_TARGET_MGR:HOURS_TARGET; }
 function occWeight(o){ return +o.weight===2?2:1; }
 function quotaUsed(personId,monthOccs){ return monthOccs.reduce((a,o)=>a+(signupFor(personId,o.id)?occWeight(o):0),0); }
 /* 名額：caps={時段:上限}，無時段的活動用 '' 當 key；沒設＝不限。名額即時計算，取消報名即自動釋出 */
@@ -764,12 +775,16 @@ function renderPeopleGrid(){
   const ppl=state.people.filter(p=>p.active && (!q||p.name.includes(q)));
   const grid=$('#people-grid');
   if(!ppl.length){ grid.innerHTML=`<div class="card muted-note" style="grid-column:1/-1">找不到符合的人員</div>`; return; }
-  grid.innerHTML=ppl.map(p=>`
+  const monthOccs=occurrencesInMonth(curMonth());
+  grid.innerHTML=ppl.map(p=>{
+    const lack=personTarget(p)-quotaUsed(p.id,monthOccs);
+    return `
     <div class="pcard" data-id="${p.id}">
+      ${lack>0?`<div class="lack" title="本月時數還差 ${lack} 小時">差 ${lack} 時</div>`:''}
       <div class="cam" data-cam="${p.id}" title="上傳頭像">📷</div>
       ${avatarHTML(p)}
       <div class="nm">${p.name}</div>
-    </div>`).join('');
+    </div>`;}).join('');
   grid.querySelectorAll('.pcard').forEach(c=>{
     c.onclick=e=>{
       if(e.target.dataset.cam){ uploadAvatar(e.target.dataset.cam); return; }
@@ -818,7 +833,17 @@ function renderSignup(){
   if(availDates.size) occs=occs.filter(o=>availDates.has(o.date));
 
   const usedQ=quotaUsed(person.id,monthOccs);
-  $('#greet').innerHTML=`本月名額已用 <b style="color:var(--brand)">${usedQ}</b>／${MONTH_QUOTA} 場 · 目前顯示 <b>${occs.length}</b> 場`;
+  const target=personTarget(person);
+  $('#greet').innerHTML=`本月已做 <b style="color:var(--brand)">${usedQ}</b>／目標 ${target} 小時 · 目前顯示 <b>${occs.length}</b> 場`;
+  const warn=$('#hour-warn');
+  warn.style.display='block';
+  if(usedQ<target){
+    warn.className='warn-bar';
+    warn.innerHTML=`⚠ 本月志工時數還差 <b>${target-usedQ}</b> 小時（目標 ${target} 小時${person.supervisor?'・課級主管':''}），請報名下方活動`;
+  }else{
+    warn.className='warn-bar ok';
+    warn.innerHTML=`🎉 本月志工時數已達標（${usedQ}／${target} 小時）`;
+  }
   renderMyCal(person,monthOccs,usedQ);
 
   const list=$('#signup-list');
@@ -835,7 +860,7 @@ function renderSignup(){
     return `<div class="ev ${su?'done':''}" data-occ="${o.id}">
       <div class="date"><div class="d">${day}</div><div class="m">${o.date.slice(0,7).replace('-','/')}（${weekdayLabel(o.date)}）</div></div>
       <div class="info">
-        <div class="act">${o.activity} ${su?'<span class="pill green">已報名</span>':''}${o.fromSeries?'<span class="pill gray">每週</span>':''}${occWeight(o)>1?'<span class="pill blue">抵 2 場</span>':''}${full?'<span class="pill amber">已額滿</span>':''}</div>
+        <div class="act">${o.activity} ${su?'<span class="pill green">已報名</span>':''}${o.fromSeries?'<span class="pill gray">每週</span>':''}${occWeight(o)>1?'<span class="pill blue">抵 2 小時</span>':''}${full?'<span class="pill amber">已額滿</span>':''}</div>
         <div class="meta">${occMeta(o)||'—'}${capNote}</div>
       </div>
       <div class="pick">${pickers}
@@ -851,8 +876,6 @@ function renderSignup(){
     if(doBtn) doBtn.onclick=()=>{
       const v=gather(row,occ); if(v.err){ toast(v.err); return; }
       if(slotLeft(occ,v.slot)<=0){ toast('該時段已額滿'); renderSignup(); return; }
-      const used=quotaUsed(person.id,monthOccs);
-      if(used+occWeight(occ)>MONTH_QUOTA){ quotaModal(person,occ,v.slot,monthOccs,used); return; }
       suAdd({id:uid('s'),personId:person.id,occId,slot:v.slot,ts:Date.now()});
       renderSignup(); toast('報名成功 ✅');
     };
@@ -909,7 +932,7 @@ function renderMyCal(person,monthOccs,usedQ){
     if(dow===0||dow===6){ cells+=`<div class="cal-day disabled">${d}</div>`; continue; } // 週末不開放
     const list=byDate[ds];
     const cls=['cal-day', list?'mine':'', availDates.has(ds)?'sel':''].filter(Boolean).join(' ');
-    const tip=list?` title="${list.map(x=>`${x.o.activity}${x.su.slot?` ${x.su.slot}`:''}${occWeight(x.o)>1?'（抵 2 場）':''}`).join('、').replace(/"/g,'&quot;')}"`:'';
+    const tip=list?` title="${list.map(x=>`${x.o.activity}${x.su.slot?` ${x.su.slot}`:''}${occWeight(x.o)>1?'（抵 2 小時）':''}`).join('、').replace(/"/g,'&quot;')}"`:'';
     const dot=occDates.has(ds)?'<span class="dot"></span>':'';
     cells+=`<div class="${cls}" data-d="${ds}"${tip}>${d}${dot}</div>`;
   }
@@ -921,47 +944,8 @@ function renderMyCal(person,monthOccs,usedQ){
   const items=Object.keys(byDate).sort().flatMap(ds=>byDate[ds].map(x=>
     `${parseInt(ds.slice(8))}日 ${x.o.activity}${x.su.slot?`（${x.su.slot}）`:''}`));
   $('#my-cal-note').innerHTML = items.length
-    ? `本月名額已用 <b>${usedQ}</b>／${MONTH_QUOTA} 場：${items.join('、')}`
-    : `本月尚未報名任何活動（每人每月 ${MONTH_QUOTA} 場名額）。`;
-}
-
-/* 超過每月名額 → 讓報名者取捨：取消既有報名改報新的，或放棄 */
-function quotaModal(person,occ,slot,monthOccs,used){
-  const bg=$('#modal-bg');
-  const w=occWeight(occ);
-  const mine=monthOccs.filter(o=>o.id!==occ.id&&signupFor(person.id,o.id));
-  const need=used+w-MONTH_QUOTA;
-  const sel=new Set();
-  $('#modal').innerHTML=`<h3>超過每月報名上限</h3>
-    <p style="margin:0 0 6px;font-size:14px">每人每月最多 <b>${MONTH_QUOTA}</b> 場名額。你本月已用 <b>${used}</b> 場，「${occ.activity}」${w>1?'一場抵 <b>2</b> 場':'需 1 場'}，再報會超過上限。</p>
-    <p class="hint" style="margin:0 0 10px">請點選要取消的既有報名（需釋出 ${need} 場），或放棄本次報名。</p>
-    <div id="m-quota"></div>
-    <div class="flex-end"><button class="btn ghost" id="m-cancel">放棄本次報名</button><button class="btn danger" id="m-ok" disabled>取消所選並改報</button></div>`;
-  const box=$('#m-quota');
-  box.innerHTML=mine.map(o=>{ const su=signupFor(person.id,o.id);
-    return `<div class="att-item" data-o="${o.id}"><span class="box"></span>
-      <span style="flex:1">${parseInt(o.date.slice(8))}日（${weekdayLabel(o.date)}）${o.activity}${su.slot?` <span style="color:var(--muted);font-size:13px">${su.slot}</span>`:''}</span>
-      ${occWeight(o)>1?'<span class="pill blue">抵 2 場</span>':''}</div>`; }).join('');
-  const refresh=()=>{
-    let freed=0;
-    box.querySelectorAll('.att-item').forEach(el=>{
-      const on=sel.has(el.dataset.o);
-      el.classList.toggle('on',on); el.querySelector('.box').textContent=on?'✓':'';
-      if(on) freed+=occWeight(mine.find(x=>x.id===el.dataset.o));
-    });
-    $('#m-ok').disabled=(used-freed+w>MONTH_QUOTA);
-  };
-  box.querySelectorAll('.att-item').forEach(el=>el.onclick=()=>{
-    const id=el.dataset.o; sel.has(id)?sel.delete(id):sel.add(id); refresh();
-  });
-  refresh();
-  $('#m-cancel').onclick=()=>bg.classList.remove('show');
-  $('#m-ok').onclick=()=>{
-    suRemoveWhere(s=>s.personId===person.id&&sel.has(s.occId));
-    suAdd({id:uid('s'),personId:person.id,occId:occ.id,slot,ts:Date.now()});
-    bg.classList.remove('show'); renderSignup(); toast('已改報成功 ✅');
-  };
-  bg.classList.add('show');
+    ? `本月已做 <b>${usedQ}</b>／目標 ${personTarget(person)} 小時：${items.join('、')}`
+    : `本月尚未報名任何活動（時數目標 ${personTarget(person)} 小時）。`;
 }
 
 /* =========================================================
@@ -978,16 +962,17 @@ function renderOverviewTable(){
   if(!occs.length){ t.innerHTML=`<tbody><tr><td class="muted-note">本月無活動</td></tr></tbody>`; return; }
   let head=`<thead><tr><th>姓名</th>`;
   occs.forEach(o=>{ head+=`<th class="colhead"><div class="dd">${parseInt(o.date.slice(8))}<span class="aa"> ${weekdayLabel(o.date)}</span></div><div class="aa">${o.activity}</div></th>`; });
-  head+=`<th>報名／出席</th></tr></thead>`;
+  head+=`<th>報名／出席<br><span class="aa">時數／目標</span></th></tr></thead>`;
   let body='<tbody>';
   ppl.forEach(p=>{
-    let cnt=0, att=0, cells='';
+    let cnt=0, att=0, hrs=0, cells='';
     occs.forEach(o=>{ const su=signupFor(p.id,o.id);
-      if(su){ cnt++; if(su.attended) att++; const lbl=(su.attended?'✓ ':'')+(su.slot||'報名');
+      if(su){ cnt++; if(su.attended) att++; hrs+=occWeight(o); const lbl=(su.attended?'✓ ':'')+(su.slot||'報名');
         cells+=`<td class="filled ${su.attended?'att':''}" data-p="${p.id}" data-o="${o.id}" title="點一下切換實際出席">${lbl}</td>`; }
       else cells+='<td></td>';
     });
-    body+=`<tr><th>${avatarHTML(p)}${p.name}</th>${cells}<td class="cnt">${cnt}／${att}</td></tr>`;
+    const tgt=personTarget(p);
+    body+=`<tr><th>${avatarHTML(p)}${p.name}</th>${cells}<td class="cnt ${hrs<tgt?'under':''}">${cnt}／${att}<div class="hrs">${hrs}／${tgt} 時${hrs<tgt?'・未達':''}</div></td></tr>`;
   });
   t.innerHTML=head+body+'</tbody>';
   t.querySelectorAll('td.filled').forEach(td=>td.onclick=()=>{
@@ -1007,27 +992,28 @@ function renderReportBody(){
   const occIds=new Set(occs.map(o=>o.id));
   const ppl=state.people.filter(p=>p.active);
   const sus=state.signups.filter(s=>occIds.has(s.occId));
-  const byPerson={}; ppl.forEach(p=>byPerson[p.id]={signups:0,attended:0});
-  sus.forEach(s=>{ if(byPerson[s.personId]){ byPerson[s.personId].signups++; if(s.attended) byPerson[s.personId].attended++; } });
-  const participated=ppl.filter(p=>byPerson[p.id].signups>0);
-  const notParticipated=ppl.filter(p=>byPerson[p.id].signups===0);
+  const wByOcc={}; occs.forEach(o=>wByOcc[o.id]=occWeight(o));
+  const byPerson={}; ppl.forEach(p=>byPerson[p.id]={signups:0,attended:0,hours:0});
+  sus.forEach(s=>{ if(byPerson[s.personId]){ byPerson[s.personId].signups++; if(s.attended) byPerson[s.personId].attended++; byPerson[s.personId].hours+=wByOcc[s.occId]||0; } });
+  const met=ppl.filter(p=>byPerson[p.id].hours>=personTarget(p));
+  const under=ppl.filter(p=>byPerson[p.id].hours<personTarget(p));
   const totalAttended=sus.filter(s=>s.attended).length;
 
   $('#report-stats').innerHTML=[
     tile(ppl.length,'啟用人數'),
-    tile(participated.length,'有參與人數',true),
-    tile(notParticipated.length,'未參與人數'),
+    tile(met.length,'已達標人數',true),
+    tile(under.length,'未達標人數'),
     tile(sus.length,'報名場次'),
     tile(totalAttended,'實際出席場次'),
   ].join('');
 
   // 各課室
   const depts={}; ppl.forEach(p=>{ const d=p.dept||'未分課'; (depts[d]=depts[d]||[]).push(p); });
-  let dHead=`<thead><tr><th>課室</th><th>人數</th><th>有參與</th><th>參與率</th><th>報名場次</th><th>出席場次</th></tr></thead>`;
+  let dHead=`<thead><tr><th>課室</th><th>人數</th><th>已達標</th><th>達標率</th><th>報名場次</th><th>出席場次</th></tr></thead>`;
   let dBody='<tbody>';
   Object.keys(depts).sort().forEach(d=>{
     const mem=depts[d];
-    const part=mem.filter(p=>byPerson[p.id].signups>0).length;
+    const part=mem.filter(p=>byPerson[p.id].hours>=personTarget(p)).length;
     const su=mem.reduce((a,p)=>a+byPerson[p.id].signups,0);
     const at=mem.reduce((a,p)=>a+byPerson[p.id].attended,0);
     const rate=mem.length?Math.round(part/mem.length*100):0;
@@ -1035,17 +1021,17 @@ function renderReportBody(){
   });
   $('#dept-table').innerHTML=dHead+dBody+'</tbody>';
 
-  // 未參與名單
-  $('#nonpart-count').textContent=`（${notParticipated.length} 人）`;
+  // 未達標名單（標示還差幾小時）
+  $('#nonpart-count').textContent=`（${under.length} 人）`;
   const nbox=$('#nonpart-list');
-  if(!notParticipated.length){ nbox.innerHTML=`<p class="sub" style="margin:0">本月所有啟用人員都有參與 🎉</p>`; }
+  if(!under.length){ nbox.innerHTML=`<p class="sub" style="margin:0">本月所有啟用人員時數都已達標 🎉</p>`; }
   else {
-    const nd={}; notParticipated.forEach(p=>{ const d=p.dept||'未分課'; (nd[d]=nd[d]||[]).push(p); });
+    const nd={}; under.forEach(p=>{ const d=p.dept||'未分課'; (nd[d]=nd[d]||[]).push(p); });
     nbox.innerHTML=Object.keys(nd).sort().map(d=>`
       <div style="margin-bottom:12px">
         <div style="font-weight:700;margin-bottom:6px">${d} <span class="count-badge">（${nd[d].length} 人）</span></div>
         <div style="display:flex;flex-wrap:wrap;gap:8px">
-          ${nd[d].map(p=>`<span class="tag" style="background:#eef1f6;color:var(--muted)">${p.name}</span>`).join('')}
+          ${nd[d].map(p=>`<span class="tag" style="background:#fdeaea;color:var(--red)">${p.name} 差 ${personTarget(p)-byPerson[p.id].hours} 時${p.supervisor?'（主管）':''}</span>`).join('')}
         </div>
       </div>`).join('');
   }
@@ -1277,7 +1263,7 @@ function renderSeriesList(){
     const exc=(s.exceptions&&s.exceptions.length)?`　<span class="pill amber">已停辦 ${s.exceptions.length} 次</span>`:'';
     return `<div class="series-row" data-id="${s.id}">
       <div class="info">
-        <div class="act">${s.activity} <span class="pill blue">每週${wd}</span>${+s.weight===2?'<span class="pill amber">抵 2 場</span>':''}${exc}</div>
+        <div class="act">${s.activity} <span class="pill blue">每週${wd}</span>${+s.weight===2?'<span class="pill amber">抵 2 小時</span>':''}${exc}</div>
         <div class="meta">${range}${meta?'　·　'+meta:''}</div>
       </div>
       <button class="btn xs ghost set-caps">報名設定</button>
@@ -1318,7 +1304,7 @@ function drawOccAdmin(){
     const capBits=occKeys(o).filter(s=>slotCap(o,s)).map(s=>`${s?s+' ':''}${slotTaken(o.id,s)}/${slotCap(o,s)}`).join('、');
     return `<div class="occ-row ${o.stopped?'stopped':''}" data-occ="${o.id}">
       <div class="date">${parseInt(o.date.slice(8))}日<br><span class="meta">（${weekdayLabel(o.date)}）</span></div>
-      <div class="info"><div class="act">${o.activity} ${badge}${occWeight(o)>1?'<span class="pill amber">抵 2 場</span>':''}</div>
+      <div class="info"><div class="act">${o.activity} ${badge}${occWeight(o)>1?'<span class="pill amber">抵 2 小時</span>':''}</div>
         <div class="meta">${occMeta(o)||'—'}${o.stopped?'':`　·　已報名 ${n} 人${capBits?`（${capBits}）`:''}`}</div></div>
       ${btn}
     </div>`;
@@ -1367,8 +1353,9 @@ function renderPeople(){
   box.innerHTML=state.people.map(p=>`
     <div class="list-item ${p.active?'':'inactive'}" data-id="${p.id}">
       ${avatarHTML(p)}
-      <span class="grow">${p.name} ${p.active?'':'<span class="pill gray">已停用</span>'}</span>
+      <span class="grow">${p.name} ${p.supervisor?'<span class="pill blue">主管</span>':''}${p.active?'':'<span class="pill gray">已停用</span>'}</span>
       <select class="dept-in" style="max-width:130px" title="課室">${deptSelectHTML(p.dept||'')}</select>
+      <label class="mgr-lbl" title="課級主管每月時數目標 1 小時（一般人 2 小時）"><input type="checkbox" class="mgr-in" ${p.supervisor?'checked':''}>課級主管</label>
       <button class="btn xs ghost av">頭像</button>
       <button class="btn xs ghost toggle">${p.active?'停用':'啟用'}</button>
       <button class="btn xs danger del">刪除</button>
@@ -1376,6 +1363,7 @@ function renderPeople(){
   box.querySelectorAll('.list-item').forEach(row=>{
     const id=row.dataset.id;
     row.querySelector('.dept-in').onchange=e=>{ const p=state.people.find(x=>x.id===id); p.dept=e.target.value; save(); };
+    row.querySelector('.mgr-in').onchange=e=>{ const p=state.people.find(x=>x.id===id); p.supervisor=e.target.checked; save(); renderPeople(); };
     row.querySelector('.av').onclick=()=>uploadAvatar(id);
     row.querySelector('.toggle').onclick=()=>{ const p=state.people.find(x=>x.id===id); p.active=!p.active; save(); renderPeople(); };
     row.querySelector('.del').onclick=()=>{
@@ -1475,8 +1463,8 @@ function capsModal(cfg){
   $('#modal').innerHTML=`<h3>報名設定</h3>
     <div class="cap-row" style="margin-bottom:10px"><span class="hint" style="margin:0">名額計算</span>
       <select id="m-weight" style="max-width:200px">
-        <option value="1">一般（算 1 場）</option>
-        <option value="2" ${+cfg.weight===2?'selected':''}>大型（一場抵 2 場）</option>
+        <option value="1">一般（算 1 小時）</option>
+        <option value="2" ${+cfg.weight===2?'selected':''}>大型（一場抵 2 小時）</option>
       </select></div>
     <p class="hint" style="margin:0 0 12px">人數上限：每個時段可分別設定，留空＝不限。額滿後報名畫面會顯示「已額滿」；取消報名會自動釋出名額。</p>
     ${keys.map((s,i)=>`<div class="cap-row">${s?`<span class="tag slot">${s}</span>`:'<span class="hint" style="margin:0">整場上限</span>'}<input type="number" min="1" placeholder="不限" data-i="${i}" value="${caps[s]||''}"></div>`).join('')}
