@@ -1,0 +1,1512 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>志工服務報名系統</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#f4f6f9; --card:#ffffff; --line:#e3e8ef; --ink:#1f2733; --muted:#6b7684;
+    --brand:#2563eb; --brand-d:#1d4ed8; --brand-soft:#eaf1ff;
+    --green:#16a34a; --green-soft:#e7f7ec; --amber:#d97706; --red:#dc2626;
+    --shadow:0 1px 3px rgba(16,24,40,.08),0 1px 2px rgba(16,24,40,.06);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Noto Sans TC","Microsoft JhengHei",system-ui,-apple-system,"Segoe UI",sans-serif;
+    background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;font-size:15px;line-height:1.55}
+  header.top{background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+  .top-inner{max-width:1120px;margin:0 auto;padding:12px 18px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .logo{font-weight:800;font-size:18px;letter-spacing:.5px}
+  .logo .dot{color:var(--brand)}
+  nav.tabs{display:flex;gap:4px;margin-left:auto;background:#eef1f6;padding:4px;border-radius:10px}
+  nav.tabs button{border:0;background:transparent;padding:8px 16px;border-radius:7px;cursor:pointer;font-size:14px;
+    font-weight:600;color:var(--muted);font-family:inherit}
+  nav.tabs button.active{background:var(--card);color:var(--brand);box-shadow:var(--shadow)}
+  main{max-width:1120px;margin:0 auto;padding:22px 18px 80px}
+  main.wide{max-width:none} /* 總覽頁使用全螢幕寬，放大也不留白 */
+  .view{display:none;animation:fade .25s ease}
+  .view.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:20px;margin-bottom:18px}
+  h2.section{font-size:15px;margin:0 0 4px;letter-spacing:.3px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 16px}
+  label.fld{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:0 0 6px}
+  select,input[type=text],input[type=date],input[type=search]{width:100%;padding:10px 12px;border:1px solid var(--line);
+    border-radius:9px;font-size:15px;font-family:inherit;background:#fff;color:var(--ink)}
+  select:focus,input:focus{outline:2px solid var(--brand-soft);border-color:var(--brand)}
+  .btn{border:0;border-radius:9px;padding:10px 18px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;
+    background:var(--brand);color:#fff}
+  .btn:hover{background:var(--brand-d)}
+  .btn.sm{padding:6px 12px;font-size:13px}
+  .btn.xs{padding:4px 9px;font-size:12px}
+  .btn.ghost{background:#eef1f6;color:var(--ink)}
+  .btn.ghost:hover{background:#e3e8ef}
+  .btn.danger{background:#fdeaea;color:var(--red)}
+  .btn.danger:hover{background:#fbdcdc}
+  .btn.green{background:var(--green)}
+  .btn.green:hover{filter:brightness(.94)}
+  .row{display:flex;gap:12px;flex-wrap:wrap}
+  .row>*{flex:1;min-width:150px}
+  .pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700}
+  .pill.blue{background:var(--brand-soft);color:var(--brand-d)}
+  .pill.green{background:var(--green-soft);color:var(--green)}
+  .pill.gray{background:#eef1f6;color:var(--muted)}
+  .pill.amber{background:#fef3e2;color:var(--amber)}
+
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer;
+    font-weight:600;color:var(--muted);user-select:none}
+  .chip:hover{border-color:#cdd6e4}
+  .chip.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+  .chip.reset{border-style:dashed}
+  .chip.reset.on{background:var(--brand-soft);color:var(--brand-d);border-color:var(--brand)}
+
+  /* avatars */
+  .avatar{border-radius:50%;object-fit:cover;display:flex;align-items:center;justify-content:center;
+    font-weight:800;color:#fff;overflow:hidden;flex:0 0 auto}
+  .avatar img{width:100%;height:100%;object-fit:cover}
+
+  /* ---- 選姓名頁 ---- */
+  .people-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:12px}
+  .pcard{position:relative;border:1px solid var(--line);border-radius:14px;background:#fff;padding:14px 8px 12px;
+    text-align:center;cursor:pointer;transition:.15s}
+  .pcard:hover{border-color:var(--brand);box-shadow:var(--shadow);transform:translateY(-2px)}
+  .pcard .avatar{width:58px;height:58px;margin:0 auto 8px;font-size:22px}
+  .pcard .nm{font-weight:600;font-size:14px}
+  .pcard .cam{position:absolute;top:6px;right:6px;width:26px;height:26px;border-radius:50%;background:#eef1f6;
+    border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:13px}
+  .pcard .cam:hover{background:var(--brand-soft)}
+
+  /* ---- 報名 ---- */
+  .who-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .who-bar .avatar{width:44px;height:44px;font-size:18px}
+  .who-bar .nm{font-weight:800;font-size:17px}
+  .who-bar .grow{flex:1}
+  .greet{font-size:13px;color:var(--muted);margin-top:2px}
+  .ev-list{display:grid;gap:12px}
+  .ev{border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;transition:.15s;background:#fff}
+  .ev:hover{border-color:#cdd6e4}
+  .ev.done{background:var(--green-soft);border-color:#bfe6cb}
+  .ev .date{min-width:64px;text-align:center}
+  .ev .date .d{font-size:22px;font-weight:800;line-height:1}
+  .ev .date .m{font-size:12px;color:var(--muted)}
+  .ev .info{flex:1;min-width:150px}
+  .ev .info .act{font-weight:700;font-size:15px}
+  .ev .info .meta{font-size:13px;color:var(--muted);margin-top:3px}
+  .ev .info .meta b{color:var(--ink);font-weight:600}
+  .ev .pick{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+  .ev .pick select{min-width:120px;width:auto}
+  .muted-note{color:var(--muted);font-size:14px;text-align:center;padding:34px}
+
+  /* ---- 總覽 ---- */
+  .table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;max-height:calc(100vh - 180px)}
+  /* border-collapse:separate 才能讓 sticky 欄位的框線跟著固定 */
+  table.grid{border-collapse:separate;border-spacing:0;width:100%;font-size:13px;white-space:nowrap;background:#fff}
+  table.grid th,table.grid td{border:0;border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:6px 8px;text-align:center}
+  table.grid tr>*:last-child{border-right:0}
+  table.grid tbody tr:last-child>*{border-bottom:0}
+  table.grid thead th{background:#f7f9fc;position:sticky;top:0;z-index:2;font-size:12px}
+  table.grid tbody th{background:#fafbfd;text-align:left;font-weight:600;position:sticky;left:0;z-index:1;min-width:120px}
+  table.grid thead th:first-child{left:0;z-index:3}
+  table.grid thead th:last-child{right:0;z-index:3;border-left:1px solid var(--line)}
+  table.grid td.cnt{position:sticky;right:0;z-index:1;border-left:1px solid var(--line)}
+  table.grid tbody th .avatar{width:24px;height:24px;font-size:12px;display:inline-flex;vertical-align:middle;margin-right:6px}
+  table.grid td.filled{background:var(--brand-soft);font-weight:700;color:var(--brand-d);cursor:pointer}
+  table.grid td.filled.att{background:var(--green-soft);color:var(--green)}
+  table.grid td.cnt{background:#fafbfd;font-weight:800}
+  .lg-box{display:inline-block;width:14px;height:14px;border-radius:4px;vertical-align:middle;margin-right:2px}
+  .lg-blue{background:var(--brand-soft);border:1px solid #cdd9f5}
+  .lg-green{background:var(--green-soft);border:1px solid #bfe6cb}
+  .stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-top:16px}
+  .stat{border:1px solid var(--line);border-radius:12px;padding:14px}
+  .stat .v{font-size:24px;font-weight:800;line-height:1.1}
+  .stat .l{font-size:12px;color:var(--muted);margin-top:4px}
+  .stat.hl .v{color:var(--brand)}
+  .att-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;margin-bottom:7px;cursor:pointer}
+  .att-item:hover{border-color:var(--brand)}
+  .att-item.on{background:var(--green-soft);border-color:#bfe6cb}
+  .att-item .box{width:20px;height:20px;border-radius:6px;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff;flex:0 0 auto}
+  .att-item.on .box{background:var(--green);border-color:var(--green)}
+  .att-item .avatar{width:30px;height:30px;font-size:13px}
+  .dept-chip{display:inline-block;background:#eef1f6;color:var(--muted);border-radius:6px;padding:1px 7px;font-size:12px;font-weight:600;margin-left:6px}
+  table.grid .colhead .dd{font-weight:800;font-size:13px}
+  table.grid .colhead .aa{font-size:11px;color:var(--muted);font-weight:600}
+
+  /* ---- admin ---- */
+  .adm-tabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+  .adm-tabs button{border:1px solid var(--line);background:#fff;padding:8px 14px;border-radius:8px;cursor:pointer;
+    font-weight:600;font-size:13px;color:var(--muted);font-family:inherit}
+  .adm-tabs button.active{background:var(--brand);color:#fff;border-color:var(--brand)}
+  .adm-panel{display:none}
+  .adm-panel.active{display:block}
+  .seg{display:inline-flex;background:#eef1f6;border-radius:9px;padding:4px;gap:4px}
+  .seg button{border:0;background:transparent;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:600;
+    font-size:13px;color:var(--muted);font-family:inherit}
+  .seg button.on{background:#fff;color:var(--brand);box-shadow:var(--shadow)}
+  .tag-input{display:flex;flex-wrap:wrap;gap:6px;padding:8px;border:1px solid var(--line);border-radius:9px;background:#fff;min-height:44px}
+  .tag{background:var(--brand-soft);color:var(--brand-d);padding:3px 8px;border-radius:6px;font-size:13px;font-weight:600;
+    display:inline-flex;align-items:center;gap:6px}
+  .tag b{cursor:pointer}
+  .tag.slot{background:#eef7ee;color:var(--green)}
+  .tag.off{background:#f1f3f5;color:#98a2b3;font-weight:500}
+  .tag.date{background:#fef3e2;color:var(--amber)}
+  .tag-input input{border:0;flex:1;min-width:90px;padding:4px;font-size:14px}
+  .tag-input input:focus{outline:none}
+  .cap-row{display:flex;align-items:center;gap:8px;margin-top:6px}
+  .cap-row input{max-width:110px;flex:0 0 auto}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .hint{font-size:12px;color:var(--muted);margin-top:6px}
+  .hint a{color:var(--brand);cursor:pointer;text-decoration:none}
+  .list-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;margin-bottom:7px}
+  .list-item .grow{flex:1}
+  .list-item.inactive{opacity:.5}
+  .occ-row,.series-row{display:flex;gap:12px;align-items:center;padding:11px 13px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;flex-wrap:wrap}
+  .occ-row .date{min-width:54px;text-align:center;font-weight:700}
+  .occ-row .info,.series-row .info{flex:1;min-width:160px}
+  .occ-row .info .act,.series-row .info .act{font-weight:700}
+  .occ-row .info .meta,.series-row .info .meta{font-size:12px;color:var(--muted);margin-top:2px}
+  .series-row{background:#fbfcfe}
+  .occ-row.stopped{opacity:.6;background:#fafbfd}
+  .cal{border:1px solid var(--line);border-radius:12px;padding:14px;max-width:460px}
+  .cal-head{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+  .cal-label{font-weight:800;font-size:15px;min-width:110px;text-align:center}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+  .cal-wd{text-align:center;font-size:12px;color:var(--muted);font-weight:700;padding:2px 0}
+  .cal-day{aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;border:1px solid var(--line);
+    border-radius:9px;cursor:pointer;font-weight:600;font-size:14px;user-select:none;transition:.1s}
+  .cal-day:hover{border-color:var(--brand);background:var(--brand-soft)}
+  .cal-day.blank{border:0;cursor:default;background:transparent}
+  .cal-day.sel{background:var(--brand);color:#fff;border-color:var(--brand)}
+  .cal-day.sel:hover{background:var(--brand-d)}
+  .cal-day.wknd{color:var(--red)}
+  .cal-day.sel.wknd{color:#fff}
+  .cal-day.disabled{color:#c3cad6;background:#f7f9fc;cursor:default;position:relative}
+  .cal-day.disabled:hover{border-color:var(--line);background:#f7f9fc}
+  .cal-day{position:relative}
+  .cal-day .dot{position:absolute;bottom:5px;left:50%;transform:translateX(-50%);width:5px;height:5px;border-radius:50%;background:var(--brand)}
+  .cal-day.sel .dot{background:#fff}
+  .my-cal .cal-day.mine{background:var(--green);color:#fff;border-color:var(--green)}
+  .my-cal .cal-day.mine:hover{background:var(--green);border-color:var(--green);opacity:.9}
+  .my-cal .cal-day.mine .dot{background:#fff}
+  .my-cal .cal-day.mine.sel{box-shadow:0 0 0 2px var(--brand)}
+  @media(max-width:640px){
+    .top-inner{gap:10px}
+    nav.tabs{width:100%;margin-left:0}
+    nav.tabs button{flex:1}
+    .ev .pick{width:100%;justify-content:flex-start}
+  }
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#111827;color:#fff;padding:11px 20px;
+    border-radius:10px;font-size:14px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.2);opacity:0;pointer-events:none;transition:.3s;z-index:50}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
+  .modal-bg{position:fixed;inset:0;background:rgba(16,24,40,.45);display:none;align-items:center;justify-content:center;z-index:40;padding:16px}
+  .modal-bg.show{display:flex}
+  .modal{background:#fff;border-radius:14px;padding:22px;width:100%;max-width:460px;box-shadow:0 20px 50px rgba(0,0,0,.25)}
+  .modal h3{margin:0 0 14px;font-size:16px}
+  .flex-end{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+  .count-badge{font-size:12px;color:var(--muted);font-weight:500}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-inner">
+    <div class="logo">志工服務報名<span class="dot">系統</span></div>
+    <nav class="tabs">
+      <button data-view="signup" class="active">📝 報名</button>
+      <button data-view="overview">📊 總覽</button>
+      <button data-view="report">📈 報表</button>
+      <button data-view="admin">⚙️ 設定</button>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <!-- ============ 報名 ============ -->
+  <section class="view active" id="view-signup">
+
+    <!-- 選姓名頁 -->
+    <div id="pick-screen">
+      <div class="card">
+        <h2 class="section">請選擇你是誰</h2>
+        <p class="sub">點自己的頭像即可報名，不用登入。找不到自己？可上傳頭像方便下次快速辨識。</p>
+        <input type="search" id="people-search" placeholder="🔍 輸入姓名搜尋…">
+      </div>
+      <div class="people-grid" id="people-grid"></div>
+    </div>
+
+    <!-- 報名頁 -->
+    <div id="signup-screen" style="display:none">
+      <div class="card">
+        <div class="who-bar">
+          <button class="btn ghost sm" id="back-pick">← 換人</button>
+          <span id="who-avatar-wrap"></span>
+          <div class="grow">
+            <div class="nm" id="who-name"></div>
+            <div class="greet" id="greet"></div>
+          </div>
+          <div style="max-width:160px;flex:0 0 auto;min-width:130px">
+            <select id="signup-month"></select>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+          <label class="fld" style="margin:0">本月活動月曆</label>
+          <span class="hint" style="margin:0" id="my-cal-sum"></span>
+          <span style="flex:1"></span>
+          <button type="button" class="btn ghost xs" id="my-cal-clear">清除篩選</button>
+        </div>
+        <div class="cal my-cal">
+          <div class="cal-grid" id="my-wds"></div>
+          <div class="cal-grid" id="my-days" style="margin-top:6px"></div>
+        </div>
+        <div class="hint" style="margin-top:8px">點日期只顯示那幾天的活動（可多選）；<b style="color:var(--green)">綠色＝已報名</b>，滑鼠移上去可看活動內容；小圓點＝當天有活動；週末不開放。</div>
+        <div class="hint" id="my-cal-note" style="margin-top:4px"></div>
+      </div>
+
+      <div class="ev-list" id="signup-list"></div>
+    </div>
+  </section>
+
+  <!-- ============ 總覽 ============ -->
+  <section class="view" id="view-overview">
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div>
+          <h2 class="section">報名總覽</h2>
+          <p class="sub" style="margin:0">每位人員在各活動的報名內容。<b>點格子可切換「實際出席」</b>。</p>
+        </div>
+        <div style="margin-left:auto;min-width:160px">
+          <label class="fld">月份</label>
+          <select id="overview-month"></select>
+        </div>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--muted)">
+        <span><span class="lg-box lg-blue"></span> 已報名</span>
+        <span><span class="lg-box lg-green"></span> 已出席（實際有來）</span>
+        <span>最右欄：報名 / 出席 次數</span>
+      </div>
+    </div>
+    <div class="table-wrap"><table class="grid" id="overview-table"></table></div>
+  </section>
+
+  <!-- ============ 報表 ============ -->
+  <section class="view" id="view-report">
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div>
+          <h2 class="section">參與報表</h2>
+          <p class="sub" style="margin:0">依月份統計參與狀況與各課室參與率。參與＝當月有報名。</p>
+        </div>
+        <div style="margin-left:auto;min-width:160px">
+          <label class="fld">月份</label>
+          <select id="report-month"></select>
+        </div>
+      </div>
+      <div class="stat-row" id="report-stats"></div>
+    </div>
+
+    <div class="card">
+      <h2 class="section">各課室參與率</h2>
+      <div class="table-wrap"><table class="grid" id="dept-table"></table></div>
+    </div>
+
+    <div class="card">
+      <h2 class="section">本月未參與名單 <span class="count-badge" id="nonpart-count"></span></h2>
+      <p class="sub">當月完全沒有報名的啟用人員，依課室分組。</p>
+      <div id="nonpart-list"></div>
+    </div>
+
+    <div class="card">
+      <h2 class="section">出席登記</h2>
+      <p class="sub">選一場活動，勾選實際有到場服務的人（也可直接在「總覽」點格子切換）。</p>
+      <div style="max-width:360px;margin-bottom:14px"><select id="att-occ"></select></div>
+      <div id="att-list"></div>
+    </div>
+  </section>
+
+  <!-- ============ 設定 ============ -->
+  <section class="view" id="view-admin">
+    <div class="adm-tabs">
+      <button data-adm="events" class="active">📅 日期 / 活動</button>
+      <button data-adm="people">👥 人員</button>
+      <button data-adm="depts">🏷️ 課室</button>
+      <button data-adm="locations">🏢 地點庫</button>
+      <button data-adm="data">💾 資料</button>
+    </div>
+
+    <!-- 活動 -->
+    <div class="adm-panel active" id="adm-events">
+      <div class="card">
+        <h2 class="section">新增活動</h2>
+        <p class="sub">先選月份，再選建立方式、設定地點與時段。下方月曆與「本月活動」都會套用此月份。</p>
+
+        <div style="max-width:220px;margin-bottom:16px">
+          <label class="fld">月份（本頁共用）</label>
+          <select id="adm-month"></select>
+        </div>
+
+        <label class="fld">建立方式</label>
+        <div class="seg" id="mode-seg" style="margin-bottom:16px">
+          <button data-mode="once" class="on">📌 單次（可多日）</button>
+          <button data-mode="weekly">🔁 每週固定</button>
+        </div>
+
+        <div class="row">
+          <div style="max-width:220px">
+            <label class="fld">活動名稱</label>
+            <select id="ev-activity"></select>
+          </div>
+          <div style="max-width:220px">
+            <label class="fld">名額計算</label>
+            <select id="f-weight">
+              <option value="1">一般（算 1 場）</option>
+              <option value="2">大型（一場抵 2 場）</option>
+            </select>
+            <div class="hint">每人每月共 2 場名額，「抵 2 場」的活動報一次就用滿。</div>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:12px">
+          <div>
+            <label class="fld">地點（僅顯示通知，不可選）</label>
+            <div class="tag-input" id="f-locs"><input type="text" id="f-locs-in" placeholder="輸入地點後按 Enter，例如 本館多功能室、8C"></div>
+            <div class="hint">只會顯示給報名者看，不是報名選項。<a id="fill-locs">＋ 從地點庫帶入</a></div>
+          </div>
+          <div>
+            <label class="fld">時段（報名選項，可多個）</label>
+            <div class="tag-input" id="f-slots"><input type="text" id="f-slots-in" placeholder="輸入時段後按 Enter，例如 14:30-15:30"></div>
+            <div class="hint">報名者選的就是時段。只有一個時段時免選、直接報名。</div>
+            <label class="fld" style="margin-top:10px">報名人數上限（留空＝不限）</label>
+            <div id="f-caps"></div>
+          </div>
+        </div>
+
+        <!-- 單次 -->
+        <div id="sec-once" style="margin-top:14px">
+          <label class="fld">日期（在月曆上點選，可複選、可跨月）</label>
+          <div class="cal">
+            <div class="cal-head">
+              <div class="cal-label" id="cal-label"></div>
+              <span style="flex:1"></span>
+              <span class="hint" id="cal-count" style="margin:0"></span>
+              <button type="button" class="btn ghost xs" id="cal-clear">清除</button>
+            </div>
+            <div class="cal-grid" id="cal-wds"></div>
+            <div class="cal-grid" id="cal-days" style="margin-top:6px"></div>
+          </div>
+        </div>
+
+        <!-- 每週 -->
+        <div id="sec-weekly" style="margin-top:14px;display:none">
+          <label class="fld">每週星期幾（可複選）</label>
+          <div class="chips" id="wd-chips"></div>
+          <div class="row" style="margin-top:12px">
+            <div>
+              <label class="fld">期間開始</label>
+              <input type="date" id="f-start">
+            </div>
+            <div>
+              <label class="fld">期間結束（選填，留空＝持續進行）</label>
+              <input type="date" id="f-end">
+            </div>
+          </div>
+          <div class="hint" id="f-weekday-hint"></div>
+        </div>
+
+        <div class="flex-end"><button class="btn" id="ev-add">＋ 建立活動</button></div>
+      </div>
+
+      <div class="card">
+        <h2 class="section">每週固定系列 <span class="count-badge" id="series-count"></span></h2>
+        <div id="series-list"></div>
+      </div>
+
+      <div class="card">
+        <h2 class="section">本月活動 <span class="count-badge" id="occ-month-label"></span></h2>
+        <div id="occ-admin-list"></div>
+      </div>
+    </div>
+
+    <!-- 人員 -->
+    <div class="adm-panel" id="adm-people">
+      <div class="card">
+        <h2 class="section">人員管理 <span class="count-badge" id="ppl-count"></span></h2>
+        <p class="sub">報名頁的名單來自這裡。可停用（如離職）而不刪除資料。<b>課室</b>用於報表的參與率分析，可直接在每列修改。</p>
+        <div class="row" style="margin-bottom:14px">
+          <input type="text" id="ppl-input" placeholder="姓名" style="max-width:180px">
+          <select id="ppl-dept-input" style="max-width:180px"></select>
+          <button class="btn" id="ppl-add" style="flex:0 0 auto">＋ 新增人員</button>
+        </div>
+        <div id="ppl-list"></div>
+      </div>
+    </div>
+
+    <!-- 課室 -->
+    <div class="adm-panel" id="adm-depts">
+      <div class="card">
+        <h2 class="section">課室管理 <span class="count-badge" id="dept-count"></span></h2>
+        <p class="sub">建立課室後，可在「人員」以下拉指定；報表會依課室統計參與率。更名會自動更新所有人員。</p>
+        <div class="row" style="margin-bottom:14px">
+          <input type="text" id="dept-input" placeholder="輸入課室名稱，例如 社工組">
+          <button class="btn" id="dept-add" style="flex:0 0 auto">＋ 新增課室</button>
+        </div>
+        <div id="dept-mgr-list"></div>
+      </div>
+    </div>
+
+    <!-- 地點庫 -->
+    <div class="adm-panel" id="adm-locations">
+      <div class="card">
+        <h2 class="section">地點庫</h2>
+        <p class="sub">常用地點集中管理，建立活動時可一鍵帶入。</p>
+        <div class="tag-input" id="loc-tags"><input type="text" id="loc-input" placeholder="輸入地點後按 Enter，例如 本館多功能室、8C、一館禮堂"></div>
+      </div>
+    </div>
+
+    <!-- 資料 -->
+    <div class="adm-panel" id="adm-data">
+      <div class="card">
+        <h2 class="section">資料管理</h2>
+        <p class="sub" id="cloud-status">連線中…</p>
+        <div class="row">
+          <button class="btn ghost" id="export-btn">⬇️ 匯出 JSON 備份</button>
+          <button class="btn ghost" id="import-btn">⬆️ 匯入 JSON</button>
+          <button class="btn danger" id="reset-btn">重置為範例資料</button>
+        </div>
+        <input type="file" id="import-file" accept="application/json" style="display:none">
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+<div class="modal-bg" id="modal-bg"><div class="modal" id="modal"></div></div>
+<input type="file" id="avatar-file" accept="image/*" style="display:none">
+
+<script>
+/* =========================================================
+   資料層 (DB layer) — 目前 localStorage，日後改接 Supabase
+   ========================================================= */
+const STORE_KEY = 'volunteer_signup_v7';
+/* Supabase 連線（anon key 本來就會出現在前端；請勿輸入住民個資） */
+const SB_URL='https://ftfitfnqihbpbfntmekg.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ0Zml0Zm5xaWhicGJmbnRtZWtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3NzU5MTAsImV4cCI6MjEwMDM1MTkxMH0.69avWm2Ihel7ajdONH2ZYqycdFR-HAVbYMp2Q4llbpY';
+const sb=(typeof window!=='undefined'&&window.supabase&&SB_URL&&SB_KEY)?window.supabase.createClient(SB_URL,SB_KEY):null;
+let cloudReady=false;
+const WEEKDAYS = ['日','一','二','三','四','五','六'];
+const ACTIVITY_TYPES = ['烹飪課','本館市集','新館市集','銀幼共融','樓層表演','其他'];
+
+const SEED = () => ({
+  // 2026 年 7 月名單
+  people: [
+    '陳意千','關惠芬','林靖慧','許雅婷','黃翠苓','陳苡暄','鄭淑容','吳宜容','黃愛月','林明薈',
+    '余柏慶','吳佩璇','杜雅貞','陳淑敏','陳明芝','曾郁儒','李姵誼','吳思璇','劉楹柔','林子婷',
+    '藍淑美','阮晉爵','林怡君','蘇美蘭','曾詩雅','林蕙瑛','陳慧珊','蔡詩綺','江姿瑩','李子蓉',
+    '吳龍生','李岱瓴','劉志勝','涂瑜倩','沈侑俊','劉彥琳','謝忠義','陳奎志','蔡書傑','許睦傑','關羽庭'
+  // dept（課室）為示範用預設值，請在「設定 → 課室 / 人員」依實際情況修改
+  ].map((name,i)=>({id:'p'+(i+1),name,active:true,avatar:'',dept:['第一組','第二組','第三組','第四組'][i%4]})),
+  departments: ['第一組','第二組','第三組','第四組'],
+  locationLib: ['一館烹飪教室','本館','新館','新館禮堂','幼兒園遊樂區','7DE空橋','2CD空橋','6DE空橋',
+    '8C','7C','6D','6E','7E','3C','3D','3E','8D','8E','7D','5E','2G','3HK','3G','2C','2D','6G','6HK','6C','5C','5D','7G','7HK'],
+  // 每週固定：每週四 烹飪課 + 本館市集、每週二 新館市集（不含太陽日）
+  series: [
+    {id:'sr-cook',startDate:'2026-07-02',endDate:null,activity:'烹飪課',
+      locations:['一館烹飪教室'],slots:['13:40-14:40','15:00-16:00'],caps:{'13:40-14:40':12,'15:00-16:00':12},exceptions:[]},
+    {id:'sr-market-main',startDate:'2026-07-02',endDate:null,activity:'本館市集',
+      locations:['本館'],slots:['14:00-15:00','15:00-16:00'],exceptions:[]},
+    {id:'sr-market-new',startDate:'2026-07-07',endDate:null,activity:'新館市集',
+      locations:['新館'],slots:['14:00-15:00','15:00-16:00'],exceptions:[]},
+  ],
+  // 特定日期活動：銀幼共融、樓層表演
+  events: [
+    {id:'e-yy1',date:'2026-07-13',activity:'銀幼共融（吃冰）',locations:['新館禮堂'],slots:['14:30-15:30'],weight:2},
+    {id:'e-yy2',date:'2026-07-15',activity:'銀幼共融（慶生）',locations:['新館禮堂'],slots:['14:30-15:30'],weight:2},
+    {id:'e-yy3',date:'2026-07-20',activity:'銀幼共融（玩水槍）',locations:['幼兒園遊樂區'],slots:['14:30-15:30'],weight:2},
+    {id:'e-fl1',date:'2026-07-13',activity:'樓層表演',locations:['7DE空橋'],slots:['14:30-15:30']},
+    {id:'e-fl2',date:'2026-07-20',activity:'樓層表演',locations:['2CD空橋'],slots:['14:30-15:30']},
+    {id:'e-fl3',date:'2026-07-23',activity:'樓層表演',locations:['6DE空橋'],slots:['14:30-15:30']},
+    {id:'e-fl4',date:'2026-07-27',activity:'樓層表演',locations:[],slots:['14:30-15:30']},
+  ],
+  signups: []
+});
+
+let state = load();
+if(!state.departments){ state.departments=[...new Set(state.people.map(p=>p.dept).filter(Boolean))].sort(); save(); }
+function load(){
+  try{ const raw=localStorage.getItem(STORE_KEY); if(raw) return JSON.parse(raw); }catch(e){}
+  const s=SEED(); localStorage.setItem(STORE_KEY, JSON.stringify(s)); return s;
+}
+function save(s){ if(s) state=s; localStorage.setItem(STORE_KEY, JSON.stringify(state)); sbPushConfig(); }
+
+/* =========================================================
+   Supabase 雲端同步
+   - 設定資料（人員/課室/地點/活動）→ volunteer_config 單列 jsonb
+   - 報名紀錄 → volunteer_signups 一筆一列（多人同時報名不互相覆蓋）
+   - 未連線（離線/資料表未建立）時自動退回純 localStorage 模式
+   ※ anon key 本來就會出現在前端，等同「知道網址的人都能讀寫」，
+     請勿在系統中輸入住民姓名、床號、病歷號。
+   ========================================================= */
+function suRow(s){ return {id:s.id,person_id:s.personId,occ_id:s.occId,slot:s.slot||'',attended:!!s.attended,ts:s.ts||0}; }
+function rowSu(r){ return {id:r.id,personId:r.person_id,occId:r.occ_id,slot:r.slot||'',attended:!!r.attended,ts:Number(r.ts)||0}; }
+function configData(){ return {people:state.people,departments:state.departments,locationLib:state.locationLib,series:state.series,events:state.events}; }
+function setCloudStatus(mode){
+  const el=$('#cloud-status'); if(!el) return;
+  if(mode==='cloud') el.innerHTML='☁️ 已連線 Supabase 雲端——所有裝置即時同步，資料同時備份於此瀏覽器。';
+  else if(mode==='error') el.innerHTML='⚠️ 無法連線雲端（網路問題或資料表尚未建立），目前僅存於此瀏覽器。請確認已在 Supabase SQL Editor 執行過 schema.sql。';
+  else el.innerHTML='目前資料存在此瀏覽器（localStorage），未連線雲端。';
+}
+
+let cfgTimer=null;
+function sbPushConfig(){
+  if(!sb||!cloudReady) return;
+  clearTimeout(cfgTimer);
+  cfgTimer=setTimeout(async()=>{
+    const {error}=await sb.from('volunteer_config').upsert({id:1,data:configData()});
+    if(error) toast('⚠️ 雲端儲存失敗，資料暫存本機');
+  },400);
+}
+async function sbSuUpsert(s){
+  if(!sb||!cloudReady) return;
+  const {error}=await sb.from('volunteer_signups').upsert(suRow(s));
+  if(error) toast('⚠️ 雲端同步失敗，稍後會以本機資料為準');
+}
+async function sbSuDelete(ids){
+  if(!sb||!cloudReady||!ids.length) return;
+  const {error}=await sb.from('volunteer_signups').delete().in('id',ids);
+  if(error) toast('⚠️ 雲端同步失敗，稍後會以本機資料為準');
+}
+async function sbFullPush(){ // 匯入 / 重置：整份蓋上雲端
+  if(!sb||!cloudReady) return;
+  await sb.from('volunteer_config').upsert({id:1,data:configData()});
+  await sb.from('volunteer_signups').delete().neq('id','');
+  if(state.signups.length) await sb.from('volunteer_signups').insert(state.signups.map(suRow));
+}
+
+/* 報名紀錄的三個統一入口（本機立即生效＋背景同步雲端） */
+function suAdd(s){ state.signups.push(s); save(); sbSuUpsert(s); }
+function suUpdate(s){ save(); sbSuUpsert(s); }
+function suRemoveWhere(pred){
+  const gone=state.signups.filter(pred);
+  state.signups=state.signups.filter(s=>!pred(s));
+  save(); sbSuDelete(gone.map(s=>s.id));
+}
+
+async function cloudInit(){
+  if(!sb){ setCloudStatus('local'); return; }
+  try{
+    const [cfgRes,susRes]=await Promise.all([
+      sb.from('volunteer_config').select('data').eq('id',1).maybeSingle(),
+      sb.from('volunteer_signups').select('*')
+    ]);
+    if(cfgRes.error||susRes.error) throw (cfgRes.error||susRes.error);
+    if(cfgRes.data&&cfgRes.data.data&&cfgRes.data.data.people){
+      Object.assign(state,cfgRes.data.data);
+      state.signups=(susRes.data||[]).map(rowSu);
+      localStorage.setItem(STORE_KEY,JSON.stringify(state));
+      cloudReady=true;
+    }else{
+      cloudReady=true;
+      await sbFullPush(); // 雲端還是空的 → 把本機現況推上去
+    }
+    setCloudStatus('cloud');
+    renderAll();
+    sb.channel('volunteer-sync')
+      .on('postgres_changes',{event:'*',schema:'public',table:'volunteer_signups'},p=>{
+        if(p.eventType==='DELETE'){ const id=p.old&&p.old.id; if(id) state.signups=state.signups.filter(s=>s.id!==id); }
+        else if(p.new&&p.new.id){ const su=rowSu(p.new); const i=state.signups.findIndex(s=>s.id===su.id); if(i>=0) state.signups[i]=su; else state.signups.push(su); }
+        localStorage.setItem(STORE_KEY,JSON.stringify(state));
+        renderAll();
+      })
+      .on('postgres_changes',{event:'*',schema:'public',table:'volunteer_config'},p=>{
+        if(p.new&&p.new.data&&p.new.data.people){
+          Object.assign(state,p.new.data);
+          localStorage.setItem(STORE_KEY,JSON.stringify(state));
+          renderAll();
+        }
+      })
+      .subscribe();
+  }catch(err){ cloudReady=false; setCloudStatus('error'); }
+}
+
+/* helpers */
+const $ = s=>document.querySelector(s);
+const $$ = s=>Array.from(document.querySelectorAll(s));
+function uid(p){ return p + Math.random().toString(36).slice(2,7) + Date.now().toString(36).slice(-3); }
+function pad(n){ return String(n).padStart(2,'0'); }
+function isoDate(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+function weekdayIdx(ds){ return new Date(ds+'T00:00:00').getDay(); }
+function weekdayLabel(ds){ return WEEKDAYS[weekdayIdx(ds)]; }
+function monthLabel(ym){ const [y,m]=ym.split('-'); return `${y} 年 ${parseInt(m)} 月`; }
+function ymIndex(ym){ const [y,m]=ym.split('-').map(Number); return y*12+(m-1); }
+function indexYm(i){ return `${Math.floor(i/12)}-${pad(i%12+1)}`; }
+function todayIso(){ return isoDate(new Date()); }
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),1900); }
+
+/* avatar rendering */
+const AV_COLORS=['#2563eb','#0891b2','#7c3aed','#db2777','#059669','#d97706','#dc2626','#4f46e5','#0d9488','#c026d3'];
+function avatarHTML(person,extraClass){
+  const cls='avatar '+(extraClass||'');
+  if(person.avatar) return `<span class="${cls}"><img src="${person.avatar}" alt=""></span>`;
+  const ch=(person.name||'?').trim().slice(-2);
+  const color=AV_COLORS[[...person.name].reduce((a,c)=>a+c.charCodeAt(0),0)%AV_COLORS.length];
+  return `<span class="${cls}" style="background:${color}">${ch}</span>`;
+}
+
+/* =========================================================
+   月份範圍（含每週系列往未來延伸）
+   ========================================================= */
+function allMonths(){
+  const idxs=[];
+  state.events.forEach(e=>idxs.push(ymIndex(e.date.slice(0,7))));
+  state.series.forEach(s=>{ idxs.push(ymIndex(s.startDate.slice(0,7))); if(s.endDate) idxs.push(ymIndex(s.endDate.slice(0,7))); });
+  const t=new Date(); const tIdx=t.getFullYear()*12+t.getMonth();
+  idxs.push(tIdx);
+  // 往未來至少可規劃 12 個月（讓每週固定活動與新增活動都能排到一年後）
+  let lo=Math.min(...idxs), hi=Math.max(Math.max(...idxs), tIdx+12);
+  const res=[]; for(let i=lo;i<=hi;i++) res.push(indexYm(i));
+  return res;
+}
+function defaultMonth(){
+  const months=allMonths(); const t=new Date();
+  const cur=`${t.getFullYear()}-${pad(t.getMonth()+1)}`;
+  return months.includes(cur)?cur:months[0];
+}
+/* 全站共用的月份設定：任一頁切換月份，其他頁一起套用 */
+let selectedMonth=null;
+function curMonth(){ if(!selectedMonth||!allMonths().includes(selectedMonth)) selectedMonth=defaultMonth(); return selectedMonth; }
+function fillMonthSelect(sel){
+  const m=curMonth();
+  sel.innerHTML=allMonths().map(x=>`<option value="${x}">${monthLabel(x)}</option>`).join('');
+  sel.value=m;
+}
+/* 綁定一個月份下拉：切換時更新共用月份並重繪 */
+function bindMonthSelect(sel, onChange){
+  fillMonthSelect(sel);
+  sel.onchange=()=>{ selectedMonth=sel.value; onChange(); };
+}
+
+/* 將單次事件 + 每週系列 展開成某月的實際場次；includeStopped=true 時連同已停辦的也回傳（標記 stopped） */
+function occurrencesInMonth(ym, includeStopped){
+  const [y,m]=ym.split('-').map(Number);
+  const res=[];
+  state.events.filter(e=>e.date.slice(0,7)===ym).forEach(e=>res.push(mkOcc(e.id,e.date,e)));
+  state.series.forEach(s=>{
+    const wd=weekdayIdx(s.startDate);
+    const first=new Date(y,m-1,1), last=new Date(y,m,0);
+    const d=new Date(first);
+    d.setDate(d.getDate()+((wd-d.getDay()+7)%7));
+    for(; d<=last; d.setDate(d.getDate()+7)){
+      const ds=isoDate(d);
+      if(ds<s.startDate) continue;
+      if(s.endDate && ds>s.endDate) continue;
+      const stopped=(s.exceptions||[]).includes(ds);
+      if(stopped && !includeStopped) continue;
+      const occ=mkOcc(s.id+':'+ds, ds, s); occ.stopped=stopped; res.push(occ);
+    }
+  });
+  return res.sort((a,b)=> a.date===b.date ? a.activity.localeCompare(b.activity) : a.date.localeCompare(b.date));
+}
+function mkOcc(id,date,cfg){
+  return {id, date, activity:cfg.activity, locations:cfg.locations||[], slots:cfg.slots||[], caps:cfg.caps||{}, weight:+cfg.weight===2?2:1, fromSeries:id.includes(':')};
+}
+/* 每月名額：每人每月最多 MONTH_QUOTA 場；weight=2 的活動報一場抵兩場 */
+const MONTH_QUOTA=2;
+function occWeight(o){ return +o.weight===2?2:1; }
+function quotaUsed(personId,monthOccs){ return monthOccs.reduce((a,o)=>a+(signupFor(personId,o.id)?occWeight(o):0),0); }
+/* 名額：caps={時段:上限}，無時段的活動用 '' 當 key；沒設＝不限。名額即時計算，取消報名即自動釋出 */
+function occKeys(occ){ return occ.slots.length?occ.slots:['']; }
+function slotCap(occ,slot){ const n=parseInt((occ.caps||{})[slot||''],10); return n>0?n:0; }
+function slotTaken(occId,slot){ return state.signups.filter(s=>s.occId===occId&&(s.slot||'')===(slot||'')).length; }
+function slotLeft(occ,slot){ const cap=slotCap(occ,slot); return cap?cap-slotTaken(occ.id,slot):Infinity; }
+function occFull(occ){ return occKeys(occ).every(s=>slotLeft(occ,s)<=0); }
+function capLabel(cfg){ const c=cfg.caps||{}; const ks=Object.keys(c).filter(k=>c[k]>0);
+  if(!ks.length) return ''; return '上限 '+ks.map(k=>k?`${k} ${c[k]} 人`:`${c[k]} 人`).join('、'); }
+function signupFor(personId, occId){ return state.signups.find(s=>s.personId===personId && s.occId===occId); }
+function occMeta(occ){
+  const parts=[];
+  if(occ.locations.length) parts.push(`地點：${occ.locations.join('、')}`);
+  if(occ.slots.length) parts.push(`時段：${occ.slots.join('、')}`);
+  return parts.join('　');
+}
+
+/* =========================================================
+   分頁切換
+   ========================================================= */
+$$('nav.tabs button').forEach(b=>b.onclick=()=>{
+  $$('nav.tabs button').forEach(x=>x.classList.remove('active')); b.classList.add('active');
+  $$('.view').forEach(v=>v.classList.remove('active')); $('#view-'+b.dataset.view).classList.add('active');
+  document.querySelector('main').classList.toggle('wide', b.dataset.view==='overview');
+  if(b.dataset.view==='overview') renderOverview();
+  if(b.dataset.view==='signup') renderSignupTab();
+  if(b.dataset.view==='report') renderReport();
+  if(b.dataset.view==='admin') renderAdmin();
+});
+$$('.adm-tabs button').forEach(b=>b.onclick=()=>{
+  $$('.adm-tabs button').forEach(x=>x.classList.remove('active')); b.classList.add('active');
+  $$('.adm-panel').forEach(p=>p.classList.remove('active')); $('#adm-'+b.dataset.adm).classList.add('active');
+});
+
+/* =========================================================
+   報名 - 選姓名頁
+   ========================================================= */
+let currentPerson=null;
+function renderSignupTab(){
+  if(currentPerson && !state.people.find(p=>p.id===currentPerson&&p.active)) currentPerson=null;
+  if(currentPerson){ $('#pick-screen').style.display='none'; $('#signup-screen').style.display='block'; renderSignup(); }
+  else { $('#pick-screen').style.display='block'; $('#signup-screen').style.display='none'; renderPeopleGrid(); }
+}
+$('#people-search').oninput=renderPeopleGrid;
+function renderPeopleGrid(){
+  const q=$('#people-search').value.trim();
+  const ppl=state.people.filter(p=>p.active && (!q||p.name.includes(q)));
+  const grid=$('#people-grid');
+  if(!ppl.length){ grid.innerHTML=`<div class="card muted-note" style="grid-column:1/-1">找不到符合的人員</div>`; return; }
+  grid.innerHTML=ppl.map(p=>`
+    <div class="pcard" data-id="${p.id}">
+      <div class="cam" data-cam="${p.id}" title="上傳頭像">📷</div>
+      ${avatarHTML(p)}
+      <div class="nm">${p.name}</div>
+    </div>`).join('');
+  grid.querySelectorAll('.pcard').forEach(c=>{
+    c.onclick=e=>{
+      if(e.target.dataset.cam){ uploadAvatar(e.target.dataset.cam); return; }
+      currentPerson=c.dataset.id; availDates.clear();
+      renderSignupTab();
+    };
+  });
+}
+$('#back-pick').onclick=()=>{ currentPerson=null; renderSignupTab(); };
+
+/* 頭像上傳（含縮圖） */
+let avatarTargetId=null;
+function uploadAvatar(pid){ avatarTargetId=pid; $('#avatar-file').value=''; $('#avatar-file').click(); }
+$('#avatar-file').onchange=e=>{
+  const f=e.target.files[0]; if(!f||!avatarTargetId) return;
+  const fr=new FileReader();
+  fr.onload=()=>{ const img=new Image(); img.onload=()=>{
+    const c=document.createElement('canvas'); c.width=128; c.height=128;
+    const s=Math.min(img.width,img.height);
+    c.getContext('2d').drawImage(img,(img.width-s)/2,(img.height-s)/2,s,s,0,0,128,128);
+    const p=state.people.find(x=>x.id===avatarTargetId);
+    if(p){ p.avatar=c.toDataURL('image/jpeg',0.82); save(); toast('頭像已更新 ✅'); renderSignupTab(); renderPeople(); }
+  }; img.src=fr.result; };
+  fr.readAsDataURL(f);
+};
+
+/* =========================================================
+   報名 - 報名頁
+   ========================================================= */
+let availDates=new Set();
+$('#signup-month').onchange=()=>{ selectedMonth=$('#signup-month').value; availDates.clear(); renderSignup(); };
+$('#my-cal-clear').onclick=()=>{ availDates.clear(); renderSignup(); };
+
+function renderSignup(){
+  const person=state.people.find(p=>p.id===currentPerson);
+  if(!person){ currentPerson=null; renderSignupTab(); return; }
+  $('#who-avatar-wrap').innerHTML=avatarHTML(person);
+  $('#who-name').textContent=person.name;
+
+  fillMonthSelect($('#signup-month'));
+  const ym=curMonth();
+  const monthOccs=occurrencesInMonth(ym);
+  [...availDates].forEach(d=>{ if(d.slice(0,7)!==ym) availDates.delete(d); }); // 只保留當月的篩選
+
+  let occs=monthOccs.slice();
+  if(availDates.size) occs=occs.filter(o=>availDates.has(o.date));
+
+  const usedQ=quotaUsed(person.id,monthOccs);
+  $('#greet').innerHTML=`本月名額已用 <b style="color:var(--brand)">${usedQ}</b>／${MONTH_QUOTA} 場 · 目前顯示 <b>${occs.length}</b> 場`;
+  renderMyCal(person,monthOccs,usedQ);
+
+  const list=$('#signup-list');
+  if(!monthOccs.length){ list.innerHTML=`<div class="card muted-note">這個月還沒有活動。</div>`; return; }
+  if(!occs.length){ list.innerHTML=`<div class="card muted-note">沒有符合篩選條件的活動。可調整上方狀態或日期。</div>`; return; }
+
+  list.innerHTML=occs.map(o=>{
+    const su=signupFor(person.id,o.id);
+    const day=parseInt(o.date.slice(8));
+    const pickers=pickerHTML(o,su);
+    const full=!su&&occFull(o);
+    const key1=o.slots[0]||'', cap1=o.slots.length<2?slotCap(o,key1):0;
+    const capNote=cap1?`　·　名額 ${slotTaken(o.id,key1)}/${cap1}`:'';
+    return `<div class="ev ${su?'done':''}" data-occ="${o.id}">
+      <div class="date"><div class="d">${day}</div><div class="m">${o.date.slice(0,7).replace('-','/')}（${weekdayLabel(o.date)}）</div></div>
+      <div class="info">
+        <div class="act">${o.activity} ${su?'<span class="pill green">已報名</span>':''}${o.fromSeries?'<span class="pill gray">每週</span>':''}${occWeight(o)>1?'<span class="pill blue">抵 2 場</span>':''}${full?'<span class="pill amber">已額滿</span>':''}</div>
+        <div class="meta">${occMeta(o)||'—'}${capNote}</div>
+      </div>
+      <div class="pick">${pickers}
+        ${su?`<button class="btn sm danger cancel">取消</button>`:(full?`<button class="btn sm" disabled>已額滿</button>`:`<button class="btn sm green do-signup">報名</button>`)}
+      </div>
+    </div>`;
+  }).join('');
+
+  list.querySelectorAll('.ev').forEach(row=>{
+    const occId=row.dataset.occ;
+    const occ=occs.find(o=>o.id===occId);
+    const doBtn=row.querySelector('.do-signup'), cancel=row.querySelector('.cancel');
+    if(doBtn) doBtn.onclick=()=>{
+      const v=gather(row,occ); if(v.err){ toast(v.err); return; }
+      if(slotLeft(occ,v.slot)<=0){ toast('該時段已額滿'); renderSignup(); return; }
+      const used=quotaUsed(person.id,monthOccs);
+      if(used+occWeight(occ)>MONTH_QUOTA){ quotaModal(person,occ,v.slot,monthOccs,used); return; }
+      suAdd({id:uid('s'),personId:person.id,occId,slot:v.slot,ts:Date.now()});
+      renderSignup(); toast('報名成功 ✅');
+    };
+    if(cancel) cancel.onclick=()=>{
+      suRemoveWhere(s=>s.personId===person.id&&s.occId===occId);
+      renderSignup(); toast('已取消報名，名額已釋出');
+    };
+    if(!doBtn){ // 已報名 → 改時段即時更新
+      row.querySelectorAll('.slot-sel').forEach(sel=>sel.onchange=()=>{
+        const v=gather(row,occ); if(v.err){ toast(v.err); return; }
+        const su=signupFor(person.id,occId); if(!su) return;
+        if(v.slot!==su.slot && slotLeft(occ,v.slot)<=0){ toast('該時段已額滿'); renderSignup(); return; }
+        su.slot=v.slot; suUpdate(su); renderSignup(); toast('已更新');
+      });
+    }
+  });
+}
+
+// 只有「時段」是可選的；地點僅顯示通知，不參與選擇
+function pickerHTML(o,su){
+  if(o.slots.length>=2){
+    return `<select class="slot-sel">${su?'':'<option value="">選時段</option>'}${o.slots.map(s=>{
+      const cap=slotCap(o,s), left=slotLeft(o,s), mine=su&&su.slot===s;
+      const full=left<=0&&!mine;
+      const info=cap?(full?'（已額滿）':`（剩 ${left}）`):'';
+      return `<option value="${s}" ${mine?'selected':''} ${full?'disabled':''}>${s}${info}</option>`;
+    }).join('')}</select>`;
+  }
+  return '';
+}
+function gather(row,o){
+  let slot='';
+  if(o.slots.length>=2){ slot=row.querySelector('.slot-sel').value; if(!slot) return {err:'請選擇時段'}; }
+  else if(o.slots.length===1) slot=o.slots[0];
+  return {slot};
+}
+
+/* 本月活動月曆（合併版）：綠色＝已報名（tooltip 顯示內容）、點日期＝篩選只看那幾天、小圓點＝當天有活動 */
+function renderMyCal(person,monthOccs,usedQ){
+  const ym=curMonth();
+  const [y,m]=ym.split('-').map(Number);
+  const occDates=new Set(monthOccs.map(o=>o.date));
+  const byDate={};
+  monthOccs.forEach(o=>{ const su=signupFor(person.id,o.id);
+    if(su) (byDate[o.date]=byDate[o.date]||[]).push({o,su}); });
+  $('#my-wds').innerHTML=WEEKDAYS.map(w=>`<div class="cal-wd">${w}</div>`).join('');
+  const firstDow=new Date(y,m-1,1).getDay();
+  const days=new Date(y,m,0).getDate();
+  let cells='';
+  for(let i=0;i<firstDow;i++) cells+=`<div class="cal-day blank"></div>`;
+  for(let d=1;d<=days;d++){
+    const ds=`${y}-${pad(m)}-${pad(d)}`;
+    const dow=new Date(y,m-1,d).getDay();
+    if(dow===0||dow===6){ cells+=`<div class="cal-day disabled">${d}</div>`; continue; } // 週末不開放
+    const list=byDate[ds];
+    const cls=['cal-day', list?'mine':'', availDates.has(ds)?'sel':''].filter(Boolean).join(' ');
+    const tip=list?` title="${list.map(x=>`${x.o.activity}${x.su.slot?` ${x.su.slot}`:''}${occWeight(x.o)>1?'（抵 2 場）':''}`).join('、').replace(/"/g,'&quot;')}"`:'';
+    const dot=occDates.has(ds)?'<span class="dot"></span>':'';
+    cells+=`<div class="${cls}" data-d="${ds}"${tip}>${d}${dot}</div>`;
+  }
+  $('#my-days').innerHTML=cells;
+  $('#my-days').querySelectorAll('.cal-day[data-d]').forEach(c=>c.onclick=()=>{
+    const ds=c.dataset.d; availDates.has(ds)?availDates.delete(ds):availDates.add(ds); renderSignup();
+  });
+  $('#my-cal-sum').textContent = availDates.size ? `已篩選 ${availDates.size} 天` : '顯示全部日期';
+  const items=Object.keys(byDate).sort().flatMap(ds=>byDate[ds].map(x=>
+    `${parseInt(ds.slice(8))}日 ${x.o.activity}${x.su.slot?`（${x.su.slot}）`:''}`));
+  $('#my-cal-note').innerHTML = items.length
+    ? `本月名額已用 <b>${usedQ}</b>／${MONTH_QUOTA} 場：${items.join('、')}`
+    : `本月尚未報名任何活動（每人每月 ${MONTH_QUOTA} 場名額）。`;
+}
+
+/* 超過每月名額 → 讓報名者取捨：取消既有報名改報新的，或放棄 */
+function quotaModal(person,occ,slot,monthOccs,used){
+  const bg=$('#modal-bg');
+  const w=occWeight(occ);
+  const mine=monthOccs.filter(o=>o.id!==occ.id&&signupFor(person.id,o.id));
+  const need=used+w-MONTH_QUOTA;
+  const sel=new Set();
+  $('#modal').innerHTML=`<h3>超過每月報名上限</h3>
+    <p style="margin:0 0 6px;font-size:14px">每人每月最多 <b>${MONTH_QUOTA}</b> 場名額。你本月已用 <b>${used}</b> 場，「${occ.activity}」${w>1?'一場抵 <b>2</b> 場':'需 1 場'}，再報會超過上限。</p>
+    <p class="hint" style="margin:0 0 10px">請點選要取消的既有報名（需釋出 ${need} 場），或放棄本次報名。</p>
+    <div id="m-quota"></div>
+    <div class="flex-end"><button class="btn ghost" id="m-cancel">放棄本次報名</button><button class="btn danger" id="m-ok" disabled>取消所選並改報</button></div>`;
+  const box=$('#m-quota');
+  box.innerHTML=mine.map(o=>{ const su=signupFor(person.id,o.id);
+    return `<div class="att-item" data-o="${o.id}"><span class="box"></span>
+      <span style="flex:1">${parseInt(o.date.slice(8))}日（${weekdayLabel(o.date)}）${o.activity}${su.slot?` <span style="color:var(--muted);font-size:13px">${su.slot}</span>`:''}</span>
+      ${occWeight(o)>1?'<span class="pill blue">抵 2 場</span>':''}</div>`; }).join('');
+  const refresh=()=>{
+    let freed=0;
+    box.querySelectorAll('.att-item').forEach(el=>{
+      const on=sel.has(el.dataset.o);
+      el.classList.toggle('on',on); el.querySelector('.box').textContent=on?'✓':'';
+      if(on) freed+=occWeight(mine.find(x=>x.id===el.dataset.o));
+    });
+    $('#m-ok').disabled=(used-freed+w>MONTH_QUOTA);
+  };
+  box.querySelectorAll('.att-item').forEach(el=>el.onclick=()=>{
+    const id=el.dataset.o; sel.has(id)?sel.delete(id):sel.add(id); refresh();
+  });
+  refresh();
+  $('#m-cancel').onclick=()=>bg.classList.remove('show');
+  $('#m-ok').onclick=()=>{
+    suRemoveWhere(s=>s.personId===person.id&&sel.has(s.occId));
+    suAdd({id:uid('s'),personId:person.id,occId:occ.id,slot,ts:Date.now()});
+    bg.classList.remove('show'); renderSignup(); toast('已改報成功 ✅');
+  };
+  bg.classList.add('show');
+}
+
+/* =========================================================
+   總覽
+   ========================================================= */
+function renderOverview(){
+  bindMonthSelect($('#overview-month'), renderOverviewTable); renderOverviewTable();
+}
+function renderOverviewTable(){
+  const ym=curMonth();
+  const occs=occurrencesInMonth(ym);
+  const ppl=state.people.filter(p=>p.active);
+  const t=$('#overview-table');
+  if(!occs.length){ t.innerHTML=`<tbody><tr><td class="muted-note">本月無活動</td></tr></tbody>`; return; }
+  let head=`<thead><tr><th>姓名</th>`;
+  occs.forEach(o=>{ head+=`<th class="colhead"><div class="dd">${parseInt(o.date.slice(8))}<span class="aa"> ${weekdayLabel(o.date)}</span></div><div class="aa">${o.activity}</div></th>`; });
+  head+=`<th>報名／出席</th></tr></thead>`;
+  let body='<tbody>';
+  ppl.forEach(p=>{
+    let cnt=0, att=0, cells='';
+    occs.forEach(o=>{ const su=signupFor(p.id,o.id);
+      if(su){ cnt++; if(su.attended) att++; const lbl=(su.attended?'✓ ':'')+(su.slot||'報名');
+        cells+=`<td class="filled ${su.attended?'att':''}" data-p="${p.id}" data-o="${o.id}" title="點一下切換實際出席">${lbl}</td>`; }
+      else cells+='<td></td>';
+    });
+    body+=`<tr><th>${avatarHTML(p)}${p.name}</th>${cells}<td class="cnt">${cnt}／${att}</td></tr>`;
+  });
+  t.innerHTML=head+body+'</tbody>';
+  t.querySelectorAll('td.filled').forEach(td=>td.onclick=()=>{
+    const su=signupFor(td.dataset.p, td.dataset.o);
+    if(su){ su.attended=!su.attended; suUpdate(su); renderOverviewTable(); }
+  });
+}
+
+/* =========================================================
+   報表（參與率 / 出席）
+   ========================================================= */
+function renderReport(){ bindMonthSelect($('#report-month'), renderReportBody); renderReportBody(); }
+
+function renderReportBody(){
+  const ym=curMonth();
+  const occs=occurrencesInMonth(ym);
+  const occIds=new Set(occs.map(o=>o.id));
+  const ppl=state.people.filter(p=>p.active);
+  const sus=state.signups.filter(s=>occIds.has(s.occId));
+  const byPerson={}; ppl.forEach(p=>byPerson[p.id]={signups:0,attended:0});
+  sus.forEach(s=>{ if(byPerson[s.personId]){ byPerson[s.personId].signups++; if(s.attended) byPerson[s.personId].attended++; } });
+  const participated=ppl.filter(p=>byPerson[p.id].signups>0);
+  const notParticipated=ppl.filter(p=>byPerson[p.id].signups===0);
+  const totalAttended=sus.filter(s=>s.attended).length;
+
+  $('#report-stats').innerHTML=[
+    tile(ppl.length,'啟用人數'),
+    tile(participated.length,'有參與人數',true),
+    tile(notParticipated.length,'未參與人數'),
+    tile(sus.length,'報名場次'),
+    tile(totalAttended,'實際出席場次'),
+  ].join('');
+
+  // 各課室
+  const depts={}; ppl.forEach(p=>{ const d=p.dept||'未分課'; (depts[d]=depts[d]||[]).push(p); });
+  let dHead=`<thead><tr><th>課室</th><th>人數</th><th>有參與</th><th>參與率</th><th>報名場次</th><th>出席場次</th></tr></thead>`;
+  let dBody='<tbody>';
+  Object.keys(depts).sort().forEach(d=>{
+    const mem=depts[d];
+    const part=mem.filter(p=>byPerson[p.id].signups>0).length;
+    const su=mem.reduce((a,p)=>a+byPerson[p.id].signups,0);
+    const at=mem.reduce((a,p)=>a+byPerson[p.id].attended,0);
+    const rate=mem.length?Math.round(part/mem.length*100):0;
+    dBody+=`<tr><th>${d}</th><td>${mem.length}</td><td>${part}</td><td><b style="color:var(--brand)">${rate}%</b></td><td>${su}</td><td>${at}</td></tr>`;
+  });
+  $('#dept-table').innerHTML=dHead+dBody+'</tbody>';
+
+  // 未參與名單
+  $('#nonpart-count').textContent=`（${notParticipated.length} 人）`;
+  const nbox=$('#nonpart-list');
+  if(!notParticipated.length){ nbox.innerHTML=`<p class="sub" style="margin:0">本月所有啟用人員都有參與 🎉</p>`; }
+  else {
+    const nd={}; notParticipated.forEach(p=>{ const d=p.dept||'未分課'; (nd[d]=nd[d]||[]).push(p); });
+    nbox.innerHTML=Object.keys(nd).sort().map(d=>`
+      <div style="margin-bottom:12px">
+        <div style="font-weight:700;margin-bottom:6px">${d} <span class="count-badge">（${nd[d].length} 人）</span></div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          ${nd[d].map(p=>`<span class="tag" style="background:#eef1f6;color:var(--muted)">${p.name}</span>`).join('')}
+        </div>
+      </div>`).join('');
+  }
+
+  // 出席登記
+  const sel=$('#att-occ'); const prev=sel.value;
+  sel.innerHTML=`<option value="">— 選擇活動 —</option>`+occs.map(o=>`<option value="${o.id}">${parseInt(o.date.slice(8))}日（${weekdayLabel(o.date)}）${o.activity}</option>`).join('');
+  if(prev && occs.some(o=>o.id===prev)) sel.value=prev;
+  sel.onchange=drawAttList;
+  drawAttList();
+}
+function tile(v,l,hl){ return `<div class="stat ${hl?'hl':''}"><div class="v">${v}</div><div class="l">${l}</div></div>`; }
+
+function drawAttList(){
+  const occId=$('#att-occ').value;
+  const box=$('#att-list');
+  if(!occId){ box.innerHTML=`<p class="sub" style="margin:0">請先選一場活動。</p>`; return; }
+  const sus=state.signups.filter(s=>s.occId===occId);
+  if(!sus.length){ box.innerHTML=`<p class="sub" style="margin:0">這場目前還沒有人報名。</p>`; return; }
+  box.innerHTML=sus.map(s=>{ const p=state.people.find(x=>x.id===s.personId); if(!p) return '';
+    return `<div class="att-item ${s.attended?'on':''}" data-s="${s.id}">
+      <span class="box">${s.attended?'✓':''}</span>
+      ${avatarHTML(p)}
+      <span style="flex:1">${p.name}<span class="dept-chip">${p.dept||'未分課'}</span></span>
+      <span style="color:var(--muted);font-size:13px">${s.slot||''}</span>
+    </div>`;
+  }).join('');
+  box.querySelectorAll('.att-item').forEach(el=>el.onclick=()=>{
+    const su=state.signups.find(x=>x.id===el.dataset.s);
+    if(su){ su.attended=!su.attended; suUpdate(su); drawAttList(); }
+  });
+}
+
+/* =========================================================
+   設定 - 活動
+   ========================================================= */
+let buildMode='once';
+let fLocs=[], fSlots=[], fDates=[], fCaps={};
+let calYM=null;
+
+/* 每個時段一個上限輸入框；沒有時段時提供整場上限 */
+function renderSlotCaps(){
+  const box=$('#f-caps'); if(!box) return;
+  Object.keys(fCaps).forEach(k=>{ if(k!==''&&!fSlots.includes(k)) delete fCaps[k]; });
+  if(!fSlots.length){
+    box.innerHTML=`<div class="cap-row"><span class="hint" style="margin:0">整場上限</span><input type="number" min="1" placeholder="不限" data-cap="" value="${fCaps['']||''}"></div>`;
+  }else{
+    box.innerHTML=fSlots.map(s=>`<div class="cap-row"><span class="tag slot">${s}</span><input type="number" min="1" placeholder="不限" data-cap="${s}" value="${fCaps[s]||''}"></div>`).join('');
+  }
+  box.querySelectorAll('input[data-cap]').forEach(inp=>inp.oninput=()=>{
+    const v=parseInt(inp.value,10);
+    if(v>0) fCaps[inp.dataset.cap]=v; else delete fCaps[inp.dataset.cap];
+  });
+}
+
+function renderAdmin(){
+  const act=$('#ev-activity');
+  if(!act.dataset.filled){ act.innerHTML=ACTIVITY_TYPES.map(a=>`<option>${a}</option>`).join(''); act.dataset.filled=1; }
+  renderTagBox('#f-locs','#f-locs-in',fLocs,'');
+  renderTagBox('#f-slots','#f-slots-in',fSlots,'slot',renderSlotCaps);
+  renderSlotCaps();
+  bindMonthSelect($('#adm-month'), ()=>{ renderCalendar(); renderSeriesList(); drawOccAdmin(); });
+  renderCalendar();
+  renderSeriesList();
+  drawOccAdmin();
+  renderPeople();
+  renderDeptMgr();
+  renderLocations();
+}
+$$('#mode-seg button').forEach(b=>b.onclick=()=>{
+  $$('#mode-seg button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); buildMode=b.dataset.mode;
+  $('#sec-once').style.display=buildMode==='once'?'block':'none';
+  $('#sec-weekly').style.display=buildMode==='weekly'?'block':'none';
+});
+/* 每週固定：勾選週幾（可複選）＋期間起迄 */
+const fWds=new Set();
+const WD_ORDER=[1,2,3,4,5,6,0]; // 顯示順序：一～六、日
+$('#wd-chips').innerHTML=WD_ORDER.map(i=>`<span class="chip" data-wd="${i}">週${WEEKDAYS[i]}</span>`).join('');
+$$('#wd-chips .chip').forEach(c=>c.onclick=()=>{
+  const wd=+c.dataset.wd;
+  fWds.has(wd)?fWds.delete(wd):fWds.add(wd);
+  c.classList.toggle('on',fWds.has(wd));
+  updateWeeklyHint();
+});
+/* start 之後（含當天）第一個指定週幾的日期 */
+function firstOnWeekday(startDs,wd){
+  const d=new Date(startDs+'T00:00:00');
+  d.setDate(d.getDate()+((wd-d.getDay()+7)%7));
+  return isoDate(d);
+}
+function countOccs(startDs,endDs,wd){
+  let n=0;
+  for(let ds=firstOnWeekday(startDs,wd); ds<=endDs; ){
+    n++;
+    const d=new Date(ds+'T00:00:00'); d.setDate(d.getDate()+7); ds=isoDate(d);
+  }
+  return n;
+}
+function updateWeeklyHint(){
+  const start=$('#f-start').value, end=$('#f-end').value;
+  const box=$('#f-weekday-hint');
+  if(!fWds.size||!start){ box.textContent=''; return; }
+  const names=WD_ORDER.filter(w=>fWds.has(w)).map(w=>`週${WEEKDAYS[w]}`).join('、');
+  if(end){
+    const total=WD_ORDER.filter(w=>fWds.has(w)).reduce((a,w)=>a+countOccs(start,end,w),0);
+    box.textContent=`每${names}，${start.replace(/-/g,'/')} ～ ${end.replace(/-/g,'/')}，共會安排 ${total} 場`;
+  }else{
+    box.textContent=`每${names}，自 ${start.replace(/-/g,'/')} 起持續進行`;
+  }
+}
+$('#f-start').onchange=updateWeeklyHint;
+$('#f-end').onchange=updateWeeklyHint;
+
+/* 通用 tag 編輯 */
+function renderTagBox(boxSel,inputSel,arr,tagClass,onChange){
+  const box=$(boxSel), input=$(inputSel);
+  box.querySelectorAll('.tag').forEach(t=>t.remove());
+  arr.forEach((v,i)=>{ const el=document.createElement('span'); el.className='tag '+tagClass;
+    el.innerHTML=`${v} <b>✕</b>`; el.querySelector('b').onclick=()=>{arr.splice(i,1);renderTagBox(boxSel,inputSel,arr,tagClass,onChange); if(onChange)onChange();};
+    box.insertBefore(el,input);
+  });
+}
+function bindTagInput(inputSel,arr,boxSel,tagClass,sort,onChange){
+  $(inputSel).addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===','){ e.preventDefault();
+    const v=e.target.value.trim(); if(v&&!arr.includes(v)){ arr.push(v); if(sort)arr.sort(); renderTagBox(boxSel,inputSel,arr,tagClass,onChange); if(onChange)onChange();} e.target.value=''; }});
+}
+bindTagInput('#f-locs-in',fLocs,'#f-locs','');
+bindTagInput('#f-slots-in',fSlots,'#f-slots','slot',false,renderSlotCaps);
+$('#fill-locs').onclick=()=>{
+  const lib=state.locationLib;
+  if(!lib.length){ toast('地點庫是空的，請先到後台「地點庫」新增'); return; }
+  const bg=$('#modal-bg');
+  const picked=new Set(fLocs.filter(l=>lib.includes(l)));
+  $('#modal').innerHTML=`<h3>從地點庫帶入</h3>
+    <p class="hint" style="margin:0 0 10px">點選要帶入的地點（可多選，再點一下取消）</p>
+    <div id="m-locs" style="display:flex;flex-wrap:wrap;gap:6px;max-height:280px;overflow:auto"></div>
+    <div class="flex-end"><button class="btn ghost" id="m-all">全選/清除</button><button class="btn ghost" id="m-cancel">取消</button><button class="btn" id="m-ok">帶入</button></div>`;
+  const box=$('#m-locs');
+  const paints=lib.map(l=>{
+    const el=document.createElement('span'); el.className='tag'; el.style.cursor='pointer'; el.textContent=l;
+    const paint=()=>el.classList.toggle('off',!picked.has(l));
+    el.onclick=()=>{ picked.has(l)?picked.delete(l):picked.add(l); paint(); };
+    paint(); box.appendChild(el); return paint;
+  });
+  $('#m-all').onclick=()=>{ if(picked.size===lib.length) picked.clear(); else lib.forEach(l=>picked.add(l)); paints.forEach(p=>p()); };
+  $('#m-cancel').onclick=()=>bg.classList.remove('show');
+  $('#m-ok').onclick=()=>{
+    const keep=fLocs.filter(l=>!lib.includes(l));
+    fLocs.length=0; keep.forEach(l=>fLocs.push(l)); lib.forEach(l=>{ if(picked.has(l)) fLocs.push(l); });
+    renderTagBox('#f-locs','#f-locs-in',fLocs,''); bg.classList.remove('show');
+  };
+  bg.classList.add('show');
+};
+
+function renderCalendar(){
+  calYM=curMonth();
+  const [y,m]=calYM.split('-').map(Number);
+  $('#cal-label').textContent=`${y} 年 ${m} 月`;
+  $('#cal-wds').innerHTML=WEEKDAYS.map(w=>`<div class="cal-wd">${w}</div>`).join('');
+  const firstDow=new Date(y,m-1,1).getDay();
+  const days=new Date(y,m,0).getDate();
+  let cells='';
+  for(let i=0;i<firstDow;i++) cells+=`<div class="cal-day blank"></div>`;
+  for(let d=1;d<=days;d++){
+    const ds=`${y}-${pad(m)}-${pad(d)}`;
+    const dow=new Date(y,m-1,d).getDay();
+    const wknd=(dow===0||dow===6)?'wknd':'';
+    cells+=`<div class="cal-day ${wknd} ${fDates.includes(ds)?'sel':''}" data-d="${ds}">${d}</div>`;
+  }
+  $('#cal-days').innerHTML=cells;
+  $('#cal-days').querySelectorAll('.cal-day[data-d]').forEach(c=>c.onclick=()=>{
+    const ds=c.dataset.d;
+    if(fDates.includes(ds)) fDates=fDates.filter(x=>x!==ds); else fDates.push(ds);
+    renderCalendar();
+  });
+  $('#cal-count').textContent=`已選 ${fDates.length} 天`;
+}
+$('#cal-clear').onclick=()=>{ fDates=[]; renderCalendar(); };
+
+$('#ev-add').onclick=()=>{
+  const activity=$('#ev-activity').value;
+  const weight=+$('#f-weight').value===2?2:1;
+  const caps={}; (fSlots.length?fSlots:['']).forEach(k=>{ if(fCaps[k]>0) caps[k]=fCaps[k]; });
+  if(buildMode==='once'){
+    if(!fDates.length){ toast('請至少加入一個日期'); return; }
+    fDates.forEach(d=>state.events.push({id:uid('e'),date:d,activity,locations:fLocs.slice(),slots:fSlots.slice(),caps:{...caps},weight}));
+    toast(`已建立 ${fDates.length} 場活動 ✅`);
+  }else{
+    if(!fWds.size){ toast('請至少選擇一個週幾'); return; }
+    const start=$('#f-start').value; if(!start){ toast('請選擇期間開始日期'); return; }
+    const end=$('#f-end').value||null;
+    if(end && end<start){ toast('結束日期不可早於開始'); return; }
+    // 每個勾選的週幾建一個系列；起始日＝期間內第一個該週幾
+    let made=0, skipped=0;
+    WD_ORDER.filter(w=>fWds.has(w)).forEach(wd=>{
+      const ds=firstOnWeekday(start,wd);
+      if(end && ds>end){ skipped++; return; }
+      state.series.push({id:uid('sr'),startDate:ds,endDate:end,activity,locations:fLocs.slice(),slots:fSlots.slice(),caps:{...caps},weight,exceptions:[]});
+      made++;
+    });
+    if(!made){ toast('所選週幾在期間內沒有任何日期，未建立'); return; }
+    toast(`已建立 ${made} 個每週固定系列 ✅${skipped?`（${skipped} 個週幾不在期間內，未建立）`:''}`);
+  }
+  save();
+  // 就地清空（fLocs/fSlots 被 bindTagInput 閉包引用，重新指派會造成輸入綁到舊陣列）
+  fLocs.length=0; fSlots.length=0; fDates=[]; fCaps={};
+  fWds.clear(); $$('#wd-chips .chip').forEach(c=>c.classList.remove('on'));
+  $('#f-start').value=''; $('#f-end').value=''; $('#f-weekday-hint').textContent=''; $('#f-weight').value='1';
+  renderAdmin();
+};
+
+function renderSeriesList(){
+  const ym=curMonth();
+  // 只顯示期間涵蓋所選月份的系列（起始月 ≤ 該月，且無結束日或結束月 ≥ 該月）
+  const visible=state.series.filter(s=>{
+    const sm=s.startDate.slice(0,7), em=s.endDate?s.endDate.slice(0,7):null;
+    return sm<=ym && (!em||em>=ym);
+  });
+  const hidden=state.series.length-visible.length;
+  $('#series-count').textContent=`（${monthLabel(ym)} ${visible.length} 個／共 ${state.series.length} 個）`;
+  const box=$('#series-list');
+  if(!state.series.length){ box.innerHTML=`<p class="sub" style="margin:0">尚無每週固定活動。</p>`; return; }
+  const hiddenNote=hidden?`<p class="sub" style="margin:6px 0 0">另有 ${hidden} 個系列不在 ${monthLabel(ym)} 期間內（已結束或尚未開始），切換月份即可查看。</p>`:'';
+  if(!visible.length){ box.innerHTML=`<p class="sub" style="margin:0">${monthLabel(ym)} 沒有進行中的每週固定活動。</p>${hiddenNote}`; return; }
+  box.innerHTML=visible.map(s=>{
+    const wd=WEEKDAYS[weekdayIdx(s.startDate)];
+    const range=`起 ${s.startDate.replace(/-/g,'/')}` + (s.endDate?` ～ 迄 ${s.endDate.replace(/-/g,'/')}`:'（持續中）');
+    const meta=[s.locations.length?`地點：${s.locations.join('、')}`:'', s.slots.length?`時段：${s.slots.join('、')}`:'', capLabel(s)].filter(Boolean).join('　');
+    const exc=(s.exceptions&&s.exceptions.length)?`　<span class="pill amber">已停辦 ${s.exceptions.length} 次</span>`:'';
+    return `<div class="series-row" data-id="${s.id}">
+      <div class="info">
+        <div class="act">${s.activity} <span class="pill blue">每週${wd}</span>${+s.weight===2?'<span class="pill amber">抵 2 場</span>':''}${exc}</div>
+        <div class="meta">${range}${meta?'　·　'+meta:''}</div>
+      </div>
+      <button class="btn xs ghost set-caps">報名設定</button>
+      <button class="btn xs ghost set-end">設定結束日</button>
+      <button class="btn xs danger del-series">刪除系列</button>
+    </div>`;
+  }).join('')+hiddenNote;
+  box.querySelectorAll('.series-row').forEach(row=>{
+    const sid=row.dataset.id; const s=state.series.find(x=>x.id===sid);
+    row.querySelector('.set-caps').onclick=()=>capsModal(s);
+    row.querySelector('.set-end').onclick=()=>promptDate('設定結束日（此日期之後停止生成）',s.endDate||'',v=>{
+      if(v && v<s.startDate){ toast('結束日不可早於起始'); return; }
+      s.endDate=v||null; save(); renderAdmin(); toast(v?'已設定結束日':'已清除結束日');
+    },true);
+    row.querySelector('.del-series').onclick=()=>{
+      const n=state.signups.filter(x=>x.occId.startsWith(sid+':')).length;
+      confirmModal(`確定刪除整個「每週${WEEKDAYS[weekdayIdx(s.startDate)]} ${s.activity}」系列？${n?`將一併刪除 ${n} 筆報名。`:''}`,()=>{
+        state.series=state.series.filter(x=>x.id!==sid);
+        suRemoveWhere(x=>x.occId.startsWith(sid+':'));
+        renderAdmin(); toast('已刪除系列');
+      });
+    };
+  });
+}
+
+function drawOccAdmin(){
+  const ym=curMonth();
+  const occs=occurrencesInMonth(ym, true);
+  $('#occ-month-label').textContent=`（${monthLabel(ym)}，含每週自動生成）`;
+  const box=$('#occ-admin-list');
+  if(!occs.length){ box.innerHTML=`<p class="sub" style="margin:0">本月無活動。</p>`; return; }
+  box.innerHTML=occs.map(o=>{
+    const n=state.signups.filter(s=>s.occId===o.id).length;
+    let btn, badge='';
+    if(o.stopped){ badge='<span class="pill amber">已停辦</span>'; btn=`<button class="btn xs green restore-occ">復原</button>`; }
+    else if(o.fromSeries){ badge='<span class="pill gray">每週</span>'; btn=`<button class="btn xs danger cancel-occ">停辦此次</button>`; }
+    else { badge='<span class="pill blue">單次</span>'; btn=`<button class="btn xs ghost set-caps">報名設定</button><button class="btn xs danger del-occ">刪除</button>`; }
+    const capBits=occKeys(o).filter(s=>slotCap(o,s)).map(s=>`${s?s+' ':''}${slotTaken(o.id,s)}/${slotCap(o,s)}`).join('、');
+    return `<div class="occ-row ${o.stopped?'stopped':''}" data-occ="${o.id}">
+      <div class="date">${parseInt(o.date.slice(8))}日<br><span class="meta">（${weekdayLabel(o.date)}）</span></div>
+      <div class="info"><div class="act">${o.activity} ${badge}${occWeight(o)>1?'<span class="pill amber">抵 2 場</span>':''}</div>
+        <div class="meta">${occMeta(o)||'—'}${o.stopped?'':`　·　已報名 ${n} 人${capBits?`（${capBits}）`:''}`}</div></div>
+      ${btn}
+    </div>`;
+  }).join('');
+  box.querySelectorAll('.occ-row').forEach(row=>{
+    const occId=row.dataset.occ;
+    const del=row.querySelector('.del-occ'), cancel=row.querySelector('.cancel-occ'), restore=row.querySelector('.restore-occ'), setCaps=row.querySelector('.set-caps');
+    if(setCaps) setCaps.onclick=()=>{ const ev=state.events.find(e=>e.id===occId); if(ev) capsModal(ev); };
+    if(del) del.onclick=()=>{
+      const n=state.signups.filter(s=>s.occId===occId).length;
+      confirmModal(`確定刪除此活動？${n?`將一併刪除 ${n} 筆報名。`:''}`,()=>{
+        state.events=state.events.filter(e=>e.id!==occId);
+        suRemoveWhere(s=>s.occId===occId);
+        drawOccAdmin(); renderSeriesList(); toast('已刪除');
+      });
+    };
+    if(cancel) cancel.onclick=()=>{
+      const [sid,ds]=occId.split(':'); const s=state.series.find(x=>x.id===sid);
+      const n=state.signups.filter(x=>x.occId===occId).length;
+      confirmModal(`確定停辦 ${ds.replace(/-/g,'/')} 這一次？${n?`將一併刪除 ${n} 筆報名。`:''}　（之後可在此列按「復原」還原）`,()=>{
+        if(!s.exceptions) s.exceptions=[]; s.exceptions.push(ds);
+        suRemoveWhere(x=>x.occId===occId);
+        drawOccAdmin(); renderSeriesList(); toast('已停辦此次');
+      });
+    };
+    if(restore) restore.onclick=()=>{
+      const [sid,ds]=occId.split(':'); const s=state.series.find(x=>x.id===sid);
+      s.exceptions=(s.exceptions||[]).filter(x=>x!==ds);
+      save(); drawOccAdmin(); renderSeriesList(); toast('已復原此次');
+    };
+  });
+}
+
+/* =========================================================
+   設定 - 人員
+   ========================================================= */
+function deptSelectHTML(cur){
+  const list=[...state.departments];
+  if(cur && !list.includes(cur)) list.push(cur); // 保留舊資料中不在清單的課室
+  return `<option value="">未分課</option>`+list.map(d=>`<option value="${d}" ${d===cur?'selected':''}>${d}</option>`).join('');
+}
+function renderPeople(){
+  $('#ppl-count').textContent=`（啟用 ${state.people.filter(p=>p.active).length} / 共 ${state.people.length}）`;
+  $('#ppl-dept-input').innerHTML=deptSelectHTML('');
+  const box=$('#ppl-list');
+  box.innerHTML=state.people.map(p=>`
+    <div class="list-item ${p.active?'':'inactive'}" data-id="${p.id}">
+      ${avatarHTML(p)}
+      <span class="grow">${p.name} ${p.active?'':'<span class="pill gray">已停用</span>'}</span>
+      <select class="dept-in" style="max-width:130px" title="課室">${deptSelectHTML(p.dept||'')}</select>
+      <button class="btn xs ghost av">頭像</button>
+      <button class="btn xs ghost toggle">${p.active?'停用':'啟用'}</button>
+      <button class="btn xs danger del">刪除</button>
+    </div>`).join('');
+  box.querySelectorAll('.list-item').forEach(row=>{
+    const id=row.dataset.id;
+    row.querySelector('.dept-in').onchange=e=>{ const p=state.people.find(x=>x.id===id); p.dept=e.target.value; save(); };
+    row.querySelector('.av').onclick=()=>uploadAvatar(id);
+    row.querySelector('.toggle').onclick=()=>{ const p=state.people.find(x=>x.id===id); p.active=!p.active; save(); renderPeople(); };
+    row.querySelector('.del').onclick=()=>{
+      const n=state.signups.filter(s=>s.personId===id).length;
+      confirmModal(`確定刪除此人員？${n?`將一併刪除 ${n} 筆報名。`:''}`,()=>{
+        state.people=state.people.filter(x=>x.id!==id);
+        suRemoveWhere(s=>s.personId===id);
+        renderPeople(); toast('已刪除');
+      });
+    };
+  });
+}
+$('#ppl-add').onclick=()=>{ const v=$('#ppl-input').value.trim(); if(!v)return;
+  const dept=$('#ppl-dept-input').value;
+  state.people.push({id:uid('p'),name:v,active:true,avatar:'',dept}); save(); $('#ppl-input').value=''; renderPeople(); toast('已新增人員'); };
+$('#ppl-input').addEventListener('keydown',e=>{ if(e.key==='Enter')$('#ppl-add').click(); });
+
+/* =========================================================
+   設定 - 課室
+   ========================================================= */
+function renderDeptMgr(){
+  $('#dept-count').textContent=`（${state.departments.length} 個）`;
+  const counts={}; state.people.forEach(p=>{ if(p.dept) counts[p.dept]=(counts[p.dept]||0)+1; });
+  const box=$('#dept-mgr-list');
+  if(!state.departments.length){ box.innerHTML=`<p class="sub" style="margin:0">尚無課室，請先新增。</p>`; return; }
+  box.innerHTML=state.departments.map((d,i)=>`
+    <div class="list-item" data-i="${i}">
+      <input type="text" class="dept-name" value="${d}" style="max-width:220px">
+      <span class="grow count-badge">${counts[d]||0} 人</span>
+      <button class="btn xs ghost rename">更名</button>
+      <button class="btn xs danger del">刪除</button>
+    </div>`).join('');
+  box.querySelectorAll('.list-item').forEach(row=>{
+    const i=+row.dataset.i, old=state.departments[i];
+    const doRename=()=>{ const nv=row.querySelector('.dept-name').value.trim();
+      if(!nv||nv===old){ row.querySelector('.dept-name').value=old; return; }
+      if(state.departments.includes(nv)){ toast('課室名稱重複'); row.querySelector('.dept-name').value=old; return; }
+      state.people.forEach(p=>{ if(p.dept===old) p.dept=nv; });
+      state.departments[i]=nv; save(); renderAdmin(); toast('已更名，人員同步更新'); };
+    row.querySelector('.rename').onclick=doRename;
+    row.querySelector('.dept-name').onchange=doRename;
+    row.querySelector('.del').onclick=()=>{
+      const n=counts[old]||0;
+      confirmModal(`確定刪除課室「${old}」？${n?`該課室 ${n} 位人員將改為「未分課」。`:''}`,()=>{
+        state.people.forEach(p=>{ if(p.dept===old) p.dept=''; });
+        state.departments.splice(i,1); save(); renderAdmin(); toast('已刪除課室');
+      });
+    };
+  });
+}
+$('#dept-add').onclick=()=>{ const v=$('#dept-input').value.trim(); if(!v)return;
+  if(state.departments.includes(v)){ toast('課室已存在'); return; }
+  state.departments.push(v); save(); $('#dept-input').value=''; renderDeptMgr(); renderPeople(); toast('已新增課室'); };
+$('#dept-input').addEventListener('keydown',e=>{ if(e.key==='Enter')$('#dept-add').click(); });
+
+/* =========================================================
+   設定 - 地點庫
+   ========================================================= */
+function renderLocations(){
+  const box=$('#loc-tags'), input=$('#loc-input');
+  box.querySelectorAll('.tag').forEach(t=>t.remove());
+  state.locationLib.forEach((v,i)=>{ const el=document.createElement('span'); el.className='tag';
+    el.innerHTML=`${v} <b>✕</b>`; el.querySelector('b').onclick=()=>{ state.locationLib.splice(i,1); save(); renderLocations(); };
+    box.insertBefore(el,input);
+  });
+}
+$('#loc-input').addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===','){ e.preventDefault();
+  const v=e.target.value.trim(); if(v&&!state.locationLib.includes(v)){ state.locationLib.push(v); save(); renderLocations(); } e.target.value=''; }});
+
+/* =========================================================
+   設定 - 資料
+   ========================================================= */
+$('#export-btn').onclick=()=>{ const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='volunteer_signup_backup.json'; a.click(); };
+$('#import-btn').onclick=()=>$('#import-file').click();
+$('#import-file').onchange=e=>{ const f=e.target.files[0]; if(!f)return; const r=new FileReader();
+  r.onload=()=>{ try{ const d=JSON.parse(r.result); if(d.people&&(d.events||d.series)){ save(d); sbFullPush(); toast('匯入成功'); currentPerson=null; renderAll(); } else toast('檔案格式不符'); }catch(err){ toast('匯入失敗'); } };
+  r.readAsText(f); };
+$('#reset-btn').onclick=()=>confirmModal('確定重置為範例資料？現有報名紀錄將全部清除。',()=>{ save(SEED()); sbFullPush(); currentPerson=null; renderAll(); toast('已重置'); });
+
+/* =========================================================
+   Modal
+   ========================================================= */
+function confirmModal(msg,onOk){
+  const bg=$('#modal-bg');
+  $('#modal').innerHTML=`<h3>確認</h3><p style="margin:0">${msg}</p>
+    <div class="flex-end"><button class="btn ghost" id="m-cancel">取消</button><button class="btn danger" id="m-ok">確定</button></div>`;
+  bg.classList.add('show');
+  $('#m-cancel').onclick=()=>bg.classList.remove('show');
+  $('#m-ok').onclick=()=>{ bg.classList.remove('show'); onOk(); };
+}
+/* 報名設定：人數上限（每時段分別設定）＋名額計算（cfg 可為單次 event 或每週 series） */
+function capsModal(cfg){
+  const bg=$('#modal-bg');
+  const keys=(cfg.slots&&cfg.slots.length)?cfg.slots:[''];
+  const caps=cfg.caps||{};
+  $('#modal').innerHTML=`<h3>報名設定</h3>
+    <div class="cap-row" style="margin-bottom:10px"><span class="hint" style="margin:0">名額計算</span>
+      <select id="m-weight" style="max-width:200px">
+        <option value="1">一般（算 1 場）</option>
+        <option value="2" ${+cfg.weight===2?'selected':''}>大型（一場抵 2 場）</option>
+      </select></div>
+    <p class="hint" style="margin:0 0 12px">人數上限：每個時段可分別設定，留空＝不限。額滿後報名畫面會顯示「已額滿」；取消報名會自動釋出名額。</p>
+    ${keys.map((s,i)=>`<div class="cap-row">${s?`<span class="tag slot">${s}</span>`:'<span class="hint" style="margin:0">整場上限</span>'}<input type="number" min="1" placeholder="不限" data-i="${i}" value="${caps[s]||''}"></div>`).join('')}
+    <div class="flex-end"><button class="btn ghost" id="m-cancel">取消</button><button class="btn" id="m-ok">儲存</button></div>`;
+  bg.classList.add('show');
+  $('#m-cancel').onclick=()=>bg.classList.remove('show');
+  $('#m-ok').onclick=()=>{
+    const nc={};
+    $('#modal').querySelectorAll('input[data-i]').forEach(inp=>{ const v=parseInt(inp.value,10); if(v>0) nc[keys[+inp.dataset.i]]=v; });
+    cfg.caps=nc; cfg.weight=+$('#m-weight').value===2?2:1;
+    save(); bg.classList.remove('show'); renderAdmin(); toast('已更新報名設定');
+  };
+}
+function promptDate(title,initial,onOk,allowEmpty){
+  const bg=$('#modal-bg');
+  $('#modal').innerHTML=`<h3>${title}</h3><input type="date" id="m-date" value="${initial||''}">
+    <div class="flex-end">${allowEmpty?'<button class="btn ghost" id="m-clear">清除</button>':''}<button class="btn ghost" id="m-cancel">取消</button><button class="btn" id="m-ok">確定</button></div>`;
+  bg.classList.add('show');
+  $('#m-cancel').onclick=()=>bg.classList.remove('show');
+  if($('#m-clear')) $('#m-clear').onclick=()=>{ bg.classList.remove('show'); onOk(''); };
+  $('#m-ok').onclick=()=>{ const v=$('#m-date').value; if(!v&&!allowEmpty){ toast('請選擇日期'); return; } bg.classList.remove('show'); onOk(v); };
+}
+$('#modal-bg').onclick=e=>{ if(e.target.id==='modal-bg') $('#modal-bg').classList.remove('show'); };
+
+/* =========================================================
+   初始
+   ========================================================= */
+function renderAll(){ renderSignupTab(); renderOverview(); renderReport(); renderAdmin(); }
+renderAll();
+cloudInit(); // 先用本機資料顯示，雲端載入完成後自動刷新
+</script>
+</body>
+</html>
