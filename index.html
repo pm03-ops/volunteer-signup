@@ -70,6 +70,9 @@
 
   /* ---- 選姓名頁 ---- */
   .people-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:12px}
+  .dept-group{margin-bottom:20px}
+  .dept-head{font-weight:800;font-size:15px;margin:0 0 10px;border-left:4px solid var(--brand);padding-left:9px;display:flex;align-items:center;gap:6px}
+  .dept-head .count-badge{font-weight:600}
   .pcard{position:relative;border:1px solid var(--line);border-radius:14px;background:#fff;padding:14px 8px 12px;
     text-align:center;cursor:pointer;transition:.15s}
   .pcard:hover{border-color:var(--brand);box-shadow:var(--shadow);transform:translateY(-2px)}
@@ -239,7 +242,7 @@
         <p class="sub">點自己的頭像即可報名，不用登入。找不到自己？可上傳頭像方便下次快速辨識。</p>
         <input type="search" id="people-search" placeholder="🔍 輸入姓名搜尋…">
       </div>
-      <div class="people-grid" id="people-grid"></div>
+      <div id="people-grid"></div>
     </div>
 
     <!-- 報名頁 -->
@@ -774,9 +777,9 @@ function renderPeopleGrid(){
   const q=$('#people-search').value.trim();
   const ppl=state.people.filter(p=>p.active && (!q||p.name.includes(q)));
   const grid=$('#people-grid');
-  if(!ppl.length){ grid.innerHTML=`<div class="card muted-note" style="grid-column:1/-1">找不到符合的人員</div>`; return; }
+  if(!ppl.length){ grid.innerHTML=`<div class="card muted-note">找不到符合的人員</div>`; return; }
   const monthOccs=occurrencesInMonth(curMonth());
-  grid.innerHTML=ppl.map(p=>{
+  const card=p=>{
     const lack=personTarget(p)-quotaUsed(p.id,monthOccs);
     return `
     <div class="pcard" data-id="${p.id}">
@@ -784,7 +787,20 @@ function renderPeopleGrid(){
       <div class="cam" data-cam="${p.id}" title="上傳頭像">📷</div>
       ${avatarHTML(p)}
       <div class="nm">${p.name}</div>
-    </div>`;}).join('');
+    </div>`;};
+  // 依課室分組：順序照「設定 → 課室」的排序，未列管課室其次，未分課最後
+  const groups={};
+  ppl.forEach(p=>{ const d=p.dept||'未分課'; (groups[d]=groups[d]||[]).push(p); });
+  const keys=[
+    ...state.departments.filter(d=>groups[d]),
+    ...Object.keys(groups).filter(d=>d!=='未分課'&&!state.departments.includes(d)).sort(),
+    ...(groups['未分課']?['未分課']:[])
+  ];
+  grid.innerHTML=keys.map(d=>`
+    <div class="dept-group">
+      <div class="dept-head">${d} <span class="count-badge">（${groups[d].length} 人）</span></div>
+      <div class="people-grid">${groups[d].map(card).join('')}</div>
+    </div>`).join('');
   grid.querySelectorAll('.pcard').forEach(c=>{
     c.onclick=e=>{
       if(e.target.dataset.cam){ uploadAvatar(e.target.dataset.cam); return; }
