@@ -278,6 +278,7 @@
         <div class="hint" id="my-cal-note" style="margin-top:4px"></div>
       </div>
 
+      <div class="chips" id="act-filter" style="margin:0 0 12px;align-items:center"></div>
       <div class="ev-list" id="signup-list"></div>
     </div>
   </section>
@@ -739,6 +740,12 @@ function occFull(occ){ return occKeys(occ).every(s=>slotLeft(occ,s)<=0); }
 function capLabel(cfg){ const c=cfg.caps||{}; const ks=Object.keys(c).filter(k=>c[k]>0);
   if(!ks.length) return ''; return '上限 '+ks.map(k=>k?`${k} ${c[k]} 人`:`${c[k]} 人`).join('、'); }
 function signupFor(personId, occId){ return state.signups.find(s=>s.personId===personId && s.occId===occId); }
+/* 活動大項目：每週系列各自一類；含「表演」的全部歸到「表演活動」；（…）變體合併，如 銀幼共融（吃冰）→ 銀幼共融 */
+function occCategory(o){
+  const base=(o.activity||'').split(/[（(]/)[0].trim();
+  if(base.includes('表演')) return '表演活動';
+  return base||'其他';
+}
 function occMeta(occ){
   const parts=[];
   if(occ.locations.length) parts.push(`地點：${occ.locations.join('、')}`);
@@ -804,7 +811,7 @@ function renderPeopleGrid(){
   grid.querySelectorAll('.pcard').forEach(c=>{
     c.onclick=e=>{
       if(e.target.dataset.cam){ uploadAvatar(e.target.dataset.cam); return; }
-      currentPerson=c.dataset.id; availDates.clear();
+      currentPerson=c.dataset.id; availDates.clear(); actFilter='';
       renderSignupTab();
     };
   });
@@ -831,8 +838,24 @@ $('#avatar-file').onchange=e=>{
    報名 - 報名頁
    ========================================================= */
 let availDates=new Set();
-$('#signup-month').onchange=()=>{ selectedMonth=$('#signup-month').value; availDates.clear(); renderSignup(); };
+let actFilter=''; // ''＝全部；否則為 occCategory 的大項目名稱
+$('#signup-month').onchange=()=>{ selectedMonth=$('#signup-month').value; availDates.clear(); actFilter=''; renderSignup(); };
 $('#my-cal-clear').onclick=()=>{ availDates.clear(); renderSignup(); };
+
+/* 活動大項目篩選籤 */
+function renderActFilter(monthOccs){
+  const cats=[...new Set(monthOccs.map(occCategory))];
+  if(actFilter&&!cats.includes(actFilter)) actFilter='';
+  const box=$('#act-filter');
+  if(cats.length<2){ box.style.display='none'; return; }
+  box.style.display='flex';
+  box.innerHTML=`<span class="hint" style="margin:0 4px 0 0">活動類型：</span>`+
+    `<span class="chip reset ${!actFilter?'on':''}" data-c="">全部</span>`+
+    cats.map(c=>`<span class="chip ${actFilter===c?'on':''}" data-c="${c}">${c}</span>`).join('');
+  box.querySelectorAll('.chip').forEach(ch=>ch.onclick=()=>{
+    const c=ch.dataset.c; actFilter=(c===actFilter)?'':c; renderSignup();
+  });
+}
 
 function renderSignup(){
   const person=state.people.find(p=>p.id===currentPerson);
@@ -844,9 +867,11 @@ function renderSignup(){
   const ym=curMonth();
   const monthOccs=occurrencesInMonth(ym);
   [...availDates].forEach(d=>{ if(d.slice(0,7)!==ym) availDates.delete(d); }); // 只保留當月的篩選
+  renderActFilter(monthOccs);
 
   let occs=monthOccs.slice();
   if(availDates.size) occs=occs.filter(o=>availDates.has(o.date));
+  if(actFilter) occs=occs.filter(o=>occCategory(o)===actFilter);
 
   const usedQ=quotaUsed(person.id,monthOccs);
   const target=personTarget(person);
